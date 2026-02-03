@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST="$ROOT/dist"
 APP_NAME="scanwr"
 DMG_NAME="scanwr"
-VERSION="0.0.1"
+VERSION="0.0.4"
 
 APP="$DIST/$APP_NAME.app"
 if [[ ! -d "$APP" ]]; then
@@ -27,4 +27,3 @@ echo "Creating DMG: $OUT"
 hdiutil create -volname "$DMG_NAME" -srcfolder "$STAGE" -ov -format UDZO "$OUT" >/dev/null
 
 echo "OK: $OUT"
-

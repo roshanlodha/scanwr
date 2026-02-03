@@ -1,11 +1,5 @@
 import Foundation
-
-struct SampleRow: Identifiable, Codable, Hashable {
-    var id: UUID = UUID()
-    var sample: String
-    var group: String
-    var path: String
-}
+import CoreGraphics
 
 enum ModuleGroup: String, Codable, CaseIterable {
     case pp
@@ -20,13 +14,7 @@ enum ModuleGroup: String, Codable, CaseIterable {
         }
     }
 
-    var badge: String {
-        switch self {
-        case .pp: return "pp"
-        case .tl: return "tl"
-        case .pl: return "pl"
-        }
-    }
+    var badge: String { rawValue }
 
     var colorHex: String {
         switch self {
@@ -42,12 +30,6 @@ struct ModuleSpec: Identifiable, Codable, Hashable {
     var group: ModuleGroup
     var title: String
     var scanpyQualname: String
-}
-
-struct ModuleInstance: Identifiable, Codable, Hashable {
-    var id: UUID = UUID()
-    var specId: String
-    var params: [String: JSONValue]
 }
 
 enum JSONValue: Codable, Hashable {
@@ -75,14 +57,62 @@ enum JSONValue: Codable, Hashable {
         }
     }
 
-    var stringValue: String? {
-        if case .string(let s) = self { return s }
-        return nil
-    }
-
-    var boolValue: Bool? {
-        if case .bool(let b) = self { return b }
-        return nil
-    }
+    var stringValue: String? { if case .string(let s) = self { return s }; return nil }
+    var boolValue: Bool? { if case .bool(let b) = self { return b }; return nil }
+    var doubleValue: Double? { if case .number(let n) = self { return n }; return nil }
 }
 
+struct CGPointCodable: Codable, Hashable {
+    var x: Double
+    var y: Double
+
+    init(_ p: CGPoint) {
+        x = Double(p.x)
+        y = Double(p.y)
+    }
+
+    var cgPoint: CGPoint { CGPoint(x: x, y: y) }
+}
+
+struct PipelineNode: Identifiable, Codable, Hashable {
+    var id: UUID = UUID()
+    var specId: String
+    var position: CGPointCodable
+    var params: [String: JSONValue]
+}
+
+struct PipelineLink: Identifiable, Codable, Hashable {
+    var id: UUID = UUID()
+    var fromNodeId: UUID
+    var toNodeId: UUID
+}
+
+struct PipelineRunSummary: Codable, Hashable {
+    var outputDir: String
+    var results: [SampleRunResult]
+}
+
+struct SampleMetadata: Identifiable, Codable, Hashable {
+    var id: UUID = UUID()
+    var sample: String
+    var group: String
+    var path: String
+    // e.g. "scanpy.read_10x_mtx"; empty means "auto"
+    var reader: String
+}
+
+struct ReaderSuggestion: Codable, Hashable {
+    var suggested: String
+    var reason: String
+}
+
+struct SampleRunResult: Codable, Hashable {
+    var sample: String
+    var group: String
+    var path: String
+    var reader: String
+    var outputDir: String
+    var checkpoints: [String]
+    var finalPath: String
+    var shape: [Int]
+}

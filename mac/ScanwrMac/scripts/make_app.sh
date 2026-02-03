@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST="$ROOT/dist"
 APP_NAME="scanwr"
 BUNDLE_ID="com.roshanlodha.scanwr"
-VERSION="0.0.1"
+VERSION="0.0.4"
 
 PY_RUNTIME_DIR="${SCANWR_PY_RUNTIME_DIR:-$DIST/python-runtime/python}"
 
@@ -27,14 +27,16 @@ echo "Building release binary via SwiftPM…"
 cd "$ROOT"
 export TMPDIR="${TMPDIR:-/tmp}"
 export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-/tmp/scanwr-clang-cache}"
-BIN_DIR="$(swift build -c release \
+rm -rf "$TMPDIR/scanwr-swift-scratch" "$TMPDIR/scanwr-swift-cache" || true
+swift build -c release \
   --disable-sandbox \
   --scratch-path "$TMPDIR/scanwr-swift-scratch" \
   --cache-path "$TMPDIR/scanwr-swift-cache" \
-  --manifest-cache local \
-  --show-bin-path)"
+  --manifest-cache local
 
-BIN="$BIN_DIR/ScanwrMacApp"
+# For Apple Silicon only (arm64), SwiftPM emits into this bin dir when using the scratch path above.
+BIN="$TMPDIR/scanwr-swift-scratch/arm64-apple-macosx/release/ScanwrMacApp"
+
 if [[ ! -f "$BIN" ]]; then
   echo "ERROR: Build output not found: $BIN" >&2
   exit 3
@@ -55,8 +57,9 @@ cp "$BIN" "$MACOS/$APP_NAME"
 cp "$ROOT/Sources/ScanwrMacApp/Resources/scanwr_rpc_server.py" "$RES/scanwr_rpc_server.py"
 
 echo "Bundling Python runtime…"
-mkdir -p "$RES/python"
-rsync -a "$PY_RUNTIME_DIR/" "$RES/python/"
+rm -rf "$RES/python"
+mkdir -p "$RES"
+ditto --noqtn "$PY_RUNTIME_DIR" "$RES/python"
 
 # Minimal Info.plist
 cat > "$CONTENTS/Info.plist" <<EOF
