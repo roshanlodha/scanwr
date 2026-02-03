@@ -157,7 +157,41 @@ def _parse_int_list(value: str) -> Optional[List[int]]:
 def _run_module(adata, spec_id: str, params: Dict[str, Any]) -> None:
     import scanpy as sc  # local import after env set
 
+    # Backwards compatibility (older ids)
     if spec_id == "pp.calculate_qc_metrics":
+        spec_id = "scanpy.pp.calculate_qc_metrics"
+
+    def _opt_int(key: str) -> Optional[int]:
+        v = (params or {}).get(key)
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return int(v)
+        if isinstance(v, str):
+            if not v.strip():
+                return None
+            return int(v)
+        return int(v)
+
+    if spec_id == "scanpy.pp.filter_cells":
+        # scanpy.pp.filter_cells allows only ONE of these thresholds per call.
+        for key in ["min_counts", "min_genes", "max_counts", "max_genes"]:
+            val = _opt_int(key)
+            if val is None:
+                continue
+            sc.pp.filter_cells(adata, **{key: val}, inplace=True)
+        return
+
+    if spec_id == "scanpy.pp.filter_genes":
+        # scanpy.pp.filter_genes allows only ONE of these thresholds per call.
+        for key in ["min_counts", "min_cells", "max_counts", "max_cells"]:
+            val = _opt_int(key)
+            if val is None:
+                continue
+            sc.pp.filter_genes(adata, **{key: val}, inplace=True)
+        return
+
+    if spec_id == "scanpy.pp.calculate_qc_metrics":
         expr_type = str(params.get("expr_type", "counts") or "counts")
         var_type = str(params.get("var_type", "genes") or "genes")
         qc_vars = _parse_csv_list(str(params.get("qc_vars", "") or "")) or ()
@@ -183,17 +217,27 @@ def _run_module(adata, spec_id: str, params: Dict[str, Any]) -> None:
             parallel=parallel,
         )
         return
+
     raise NotImplementedError(spec_id)
 
 
 def list_modules() -> List[Dict[str, Any]]:
+    # For the next version, expose only these two preprocessing filters for focused testing.
     return [
         {
-            "id": "pp.calculate_qc_metrics",
+            "id": "scanpy.pp.filter_cells",
             "group": "pp",
-            "title": "Calculate QC Metrics",
-            "scanpyQualname": "scanpy.pp.calculate_qc_metrics",
-        }
+            "namespace": "core",
+            "title": "Filter Cells",
+            "scanpyQualname": "scanpy.pp.filter_cells",
+        },
+        {
+            "id": "scanpy.pp.filter_genes",
+            "group": "pp",
+            "namespace": "core",
+            "title": "Filter Genes",
+            "scanpyQualname": "scanpy.pp.filter_genes",
+        },
     ]
 
 
@@ -273,8 +317,28 @@ def run_pipeline_multi(output_dir: str, project_name: str, samples: List[Dict[st
 
     project = out_dir / _sanitize_filename(project_name)
     project.mkdir(parents=True, exist_ok=True)
-    samples_root = project / "samples"
-    samples_root.mkdir(parents=True, exist_ok=True)
+    scanwr_dir = project / ".scanwr"
+    scanwr_dir.mkdir(parents=True, exist_ok=True)
+    checkpoints_dir = scanwr_dir / "checkpoints"
+    history_dir = scanwr_dir / "history"
+    checkpoints_dir.mkdir(parents=True, exist_ok=True)
+    history_dir.mkdir(parents=True, exist_ok=True)
+
+    # Persist metadata for reload/debug.
+    meta_path = scanwr_dir / "metadata.txt"
+    lines = ["sample\tgroup\tpath\treader"]
+    for s in samples:
+        lines.append(
+            "\t".join(
+                [
+                    str(s.get("sample", "")).strip(),
+                    str(s.get("group", "")).strip(),
+                    str(s.get("path", "")).strip(),
+                    str(s.get("reader", "")).strip(),
+                ]
+            )
+        )
+    meta_path.write_text("\n".join(lines) + "\n")
 
     requested_sigs = [_step_sig(s) for s in steps]
 
@@ -289,13 +353,8 @@ def run_pipeline_multi(output_dir: str, project_name: str, samples: List[Dict[st
         if not sample or not group or not path:
             raise ValueError("Each sample must include sample, group, path")
 
-        sample_out = samples_root / _sanitize_filename(sample)
-        sample_out.mkdir(parents=True, exist_ok=True)
-
-        checkpoint_dir = sample_out / "checkpoint"
-        checkpoint_dir.mkdir(parents=True, exist_ok=True)
-        checkpoint_h5ad = checkpoint_dir / "checkpoint.h5ad"
-        checkpoint_steps = checkpoint_dir / "steps.json"
+        checkpoint_h5ad = checkpoints_dir / f"{_sanitize_filename(sample)}.h5ad"
+        checkpoint_steps = history_dir / f"{_sanitize_filename(sample)}.json"
 
         def _load_cached_prefix() -> List[Dict[str, Any]]:
             if not checkpoint_steps.exists():
@@ -382,7 +441,7 @@ def run_pipeline_multi(output_dir: str, project_name: str, samples: List[Dict[st
                 "group": group,
                 "path": path,
                 "reader": reader,
-                "outputDir": str(sample_out),
+                "outputDir": str(project),
                 "checkpoints": checkpoints,
                 "finalPath": str(final_path),
                 "shape": shape,
@@ -416,6 +475,23 @@ def _handle(method: str, params: Any) -> Any:
 def main() -> int:
     _set_safe_env()
     _notify_log("scanwr backend ready")
+    try:
+        import logging
+
+        logging.basicConfig(level=logging.DEBUG)
+    except Exception:
+        pass
+
+    # Make Scanpy as verbose as possible.
+    try:
+        import scanpy as sc
+
+        sc.settings.verbosity = 4
+        # Force logging to stdout so it shows up in the app console.
+        sc.settings.logfile = sys.stdout
+        _notify_log(f"scanpy verbosity={sc.settings.verbosity}")
+    except Exception as e:
+        _notify_log(f"scanpy verbosity setup failed: {e}")
 
     for line in sys.stdin:
         line = line.strip()

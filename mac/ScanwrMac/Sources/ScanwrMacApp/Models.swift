@@ -28,6 +28,7 @@ enum ModuleGroup: String, Codable, CaseIterable {
 struct ModuleSpec: Identifiable, Codable, Hashable {
     var id: String
     var group: ModuleGroup
+    var namespace: String? // "core" | "experimental" | "external"
     var title: String
     var scanpyQualname: String
 }

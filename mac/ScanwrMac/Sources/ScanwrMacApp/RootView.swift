@@ -5,6 +5,7 @@ struct RootView: View {
     @State private var showAddModule = false
     @State private var showSettings = false
     @State private var showData = false
+    @State private var showConsole = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -12,10 +13,17 @@ struct RootView: View {
                 onData: { showData = true },
                 onAddModule: { showAddModule = true },
                 onSettings: { showSettings = true },
+                onConsole: { showConsole.toggle() },
                 onRun: { Task { await model.runPipeline() } }
             )
             Divider()
-            CanvasView()
+            ZStack(alignment: .bottom) {
+                CanvasView()
+                if showConsole {
+                    ConsoleDrawer(lines: model.logs, onClose: { showConsole = false })
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
         }
         .task { await model.loadModules() }
         .popover(isPresented: $showData, arrowEdge: .top) {
@@ -41,6 +49,7 @@ private struct TopBar: View {
     var onData: () -> Void
     var onAddModule: () -> Void
     var onSettings: () -> Void
+    var onConsole: () -> Void
     var onRun: () -> Void
 
     var body: some View {
@@ -70,6 +79,14 @@ private struct TopBar: View {
                 }
                 .help("Settings")
                 .disabled(model.isRunning)
+
+                Button {
+                    onConsole()
+                } label: {
+                    Image(systemName: "terminal")
+                        .imageScale(.large)
+                }
+                .help("Console")
 
                 Button {
                     onRun()
@@ -104,23 +121,88 @@ private struct TopBar: View {
     }
 }
 
+private struct ConsoleDrawer: View {
+    var lines: [String]
+    var onClose: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Console")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    onClose()
+                } label: {
+                    Image(systemName: "chevron.down")
+                        .imageScale(.large)
+                }
+                .buttonStyle(.plain)
+                .help("Close console")
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+
+            Divider()
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(lines.enumerated()), id: \.offset) { idx, line in
+                            Text(line)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.primary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .id(idx)
+                        }
+                    }
+                    .padding(12)
+                    .textSelection(.enabled)
+                }
+                .background(Color(NSColor.textBackgroundColor))
+                .onChange(of: lines.count) { _, _ in
+                    if let last = lines.indices.last {
+                        proxy.scrollTo(last, anchor: .bottom)
+                    }
+                }
+            }
+        }
+        .frame(height: 260)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .shadow(radius: 14)
+        .padding(14)
+    }
+}
+
 private struct AddModulePopover: View {
     @EnvironmentObject private var model: AppModel
     var onPick: (ModuleSpec) -> Void
 
+    @State private var query: String = ""
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Add a module").font(.headline)
+            TextField("Search modules…", text: $query)
             List {
                 ForEach(ModuleGroup.allCases, id: \.self) { grp in
                     Section(grp.title) {
-                        ForEach(model.availableModules.filter { $0.group == grp }) { spec in
+                        ForEach(filtered(group: grp)) { spec in
                             Button {
                                 onPick(spec)
                             } label: {
                                 HStack {
                                     Text(spec.title)
                                     Spacer()
+                                    if let ns = spec.namespace, ns != "core" {
+                                        Text(ns == "experimental" ? "exp" : "ext")
+                                            .font(.caption)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.primary.opacity(0.10))
+                                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                                    }
                                     Text(grp.badge)
                                         .font(.caption)
                                         .padding(.horizontal, 6)
@@ -135,6 +217,17 @@ private struct AddModulePopover: View {
             }
         }
         .padding(12)
+    }
+
+    private func filtered(group: ModuleGroup) -> [ModuleSpec] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let base = model.availableModules.filter { $0.group == group }
+        if q.isEmpty { return base }
+        return base.filter { spec in
+            spec.title.lowercased().contains(q)
+                || spec.scanpyQualname.lowercased().contains(q)
+                || (spec.namespace ?? "").lowercased().contains(q)
+        }
     }
 }
 

@@ -80,18 +80,10 @@ final class AppModel: ObservableObject {
 
     func defaultParams(for specId: String) -> [String: JSONValue] {
         switch specId {
-        case "pp.calculate_qc_metrics":
-            return [
-                "expr_type": .string("counts"),
-                "var_type": .string("genes"),
-                "qc_vars": .string(""),
-                "percent_top": .string("50,100,200,500"),
-                "layer": .string(""),
-                "use_raw": .bool(false),
-                "inplace": .bool(false),
-                "log1p": .bool(true),
-                "parallel": .string(""),
-            ]
+        case "scanpy.pp.filter_cells":
+            return [:]
+        case "scanpy.pp.filter_genes":
+            return [:]
         default:
             return [:]
         }

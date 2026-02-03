@@ -4,6 +4,7 @@ struct CanvasView: View {
     @EnvironmentObject private var model: AppModel
 
     @State private var linkingFromNodeId: UUID?
+    @State private var isLinking: Bool = false
     @State private var linkingDragPoint: CGPoint = .zero
 
     var body: some View {
@@ -22,9 +23,17 @@ struct CanvasView: View {
                     NodeBubble(
                         node: node,
                         isSelected: model.selectedNodeId == node.id,
+                        isLinking: isLinking,
+                        isLinkTarget: isLinking && linkingFromNodeId != nil && linkingFromNodeId != node.id,
                         spec: model.spec(for: node.specId),
                         onSelect: {
-                            model.selectedNodeId = node.id
+                            if let from = linkingFromNodeId, from != node.id {
+                                model.addLink(from: from, to: node.id)
+                                linkingFromNodeId = nil
+                                isLinking = false
+                            } else {
+                                model.selectedNodeId = node.id
+                            }
                         },
                         onDrag: { delta in
                             if let idx = model.nodes.firstIndex(where: { $0.id == node.id }) {
@@ -37,12 +46,14 @@ struct CanvasView: View {
                         onStartLink: { startPoint in
                             linkingFromNodeId = node.id
                             linkingDragPoint = startPoint
+                            isLinking = true
                         },
                         onUpdateLink: { p in
                             linkingDragPoint = p
                         },
                         onEndLink: { dropPoint in
                             defer { linkingFromNodeId = nil }
+                            defer { isLinking = false }
                             guard let from = linkingFromNodeId else { return }
                             if let target = nearestInputNode(at: dropPoint, excluding: from) {
                                 model.addLink(from: from, to: target)
@@ -50,6 +61,25 @@ struct CanvasView: View {
                         }
                     )
                     .position(node.position.cgPoint)
+                }
+
+                if isLinking {
+                    HStack(spacing: 10) {
+                        Text("Link mode: click a target module (or drag the port).")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Cancel") {
+                            linkingFromNodeId = nil
+                            isLinking = false
+                        }
+                        .font(.caption)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(14)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
 
                 if let selected = model.selectedNodeId,
@@ -64,9 +94,15 @@ struct CanvasView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 }
             }
+            .coordinateSpace(name: "canvas")
             .contentShape(Rectangle())
             .onTapGesture {
-                model.selectedNodeId = nil
+                if isLinking {
+                    linkingFromNodeId = nil
+                    isLinking = false
+                } else {
+                    model.selectedNodeId = nil
+                }
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
@@ -151,6 +187,8 @@ private struct LinksLayer: View {
 private struct NodeBubble: View {
     var node: PipelineNode
     var isSelected: Bool
+    var isLinking: Bool
+    var isLinkTarget: Bool
     var spec: ModuleSpec?
 
     var onSelect: () -> Void
@@ -168,13 +206,18 @@ private struct NodeBubble: View {
 
         ZStack {
             RoundedRectangle(cornerRadius: 999)
-                .fill(Color(hex: group.colorHex).opacity(isSelected ? 0.24 : 0.16))
+                .fill(Color(hex: group.colorHex).opacity(isSelected ? 0.26 : (isLinkTarget ? 0.22 : 0.16)))
                 .overlay(
                     RoundedRectangle(cornerRadius: 999)
-                        .stroke(isSelected ? Color(hex: group.colorHex).opacity(0.9) : Color.primary.opacity(0.15), lineWidth: 2)
+                        .stroke(
+                            isSelected ? Color(hex: group.colorHex).opacity(0.95) :
+                                (isLinkTarget ? Color.accentColor.opacity(0.9) : Color.primary.opacity(0.15)),
+                            lineWidth: isLinkTarget ? 3 : 2
+                        )
                 )
 
             HStack(spacing: 10) {
+                InputPort()
                 Circle()
                     .fill(Color.primary.opacity(0.18))
                     .frame(width: 12, height: 12)
@@ -197,7 +240,15 @@ private struct NodeBubble: View {
                     .background(Color(hex: group.colorHex).opacity(0.18))
                     .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                OutputPort(onStart: onStartLink, onUpdate: onUpdateLink, onEnd: onEndLink)
+                OutputPort(
+                    onTapStart: {
+                        // Start link mode with a reasonable starting point.
+                        onStartLink(.zero)
+                    },
+                    onStart: onStartLink,
+                    onUpdate: onUpdateLink,
+                    onEnd: onEndLink
+                )
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -220,10 +271,23 @@ private struct NodeBubble: View {
     }
 }
 
+private struct InputPort: View {
+    var body: some View {
+        Circle()
+            .fill(Color.primary.opacity(0.18))
+            .overlay(Circle().stroke(Color.primary.opacity(0.25), lineWidth: 1))
+            .frame(width: 12, height: 12)
+            .help("Input")
+    }
+}
+
 private struct OutputPort: View {
+    var onTapStart: () -> Void
     var onStart: (CGPoint) -> Void
     var onUpdate: (CGPoint) -> Void
     var onEnd: (CGPoint) -> Void
+
+    @State private var started = false
 
     var body: some View {
         GeometryReader { geo in
@@ -232,21 +296,34 @@ private struct OutputPort: View {
                 .overlay(Circle().stroke(Color.white.opacity(0.5), lineWidth: 1))
                 .frame(width: 14, height: 14)
                 .contentShape(Circle())
+                .onTapGesture {
+                    // Click-to-link (more obvious than drag).
+                    let base = geo.frame(in: .named("canvas"))
+                    onTapStart()
+                    onStart(CGPoint(x: base.midX, y: base.midY))
+                }
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { v in
-                            let p = CGPoint(x: geo.frame(in: .global).midX + v.translation.width,
-                                            y: geo.frame(in: .global).midY + v.translation.height)
-                            if v.startLocation == v.location {
+                            let base = geo.frame(in: .named("canvas"))
+                            let p = CGPoint(
+                                x: base.midX + v.translation.width,
+                                y: base.midY + v.translation.height
+                            )
+                            if !started {
+                                started = true
                                 onStart(p)
-                            } else {
-                                onUpdate(p)
                             }
+                            onUpdate(p)
                         }
                         .onEnded { v in
-                            let p = CGPoint(x: geo.frame(in: .global).midX + v.translation.width,
-                                            y: geo.frame(in: .global).midY + v.translation.height)
+                            let base = geo.frame(in: .named("canvas"))
+                            let p = CGPoint(
+                                x: base.midX + v.translation.width,
+                                y: base.midY + v.translation.height
+                            )
                             onEnd(p)
+                            started = false
                         }
                 )
         }
@@ -266,4 +343,3 @@ private extension Color {
         self.init(.sRGB, red: r, green: g, blue: b, opacity: 1.0)
     }
 }
-
