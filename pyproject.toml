@@ -1,0 +1,15 @@
+[project]
+name = "scanwr"
+version = "0.0.1"
+description = "GUI Scanpy wrapper for non-coders"
+requires-python = ">=3.11"
+dependencies = [
+  "scanpy>=1.10",
+]
+
+[project.scripts]
+scanwr = "scanwr.app:main"
+
+[tool.ruff]
+line-length = 100
+
