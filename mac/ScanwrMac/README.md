@@ -71,4 +71,4 @@ cd mac/ScanwrMac
 ./scripts/make_dmg.sh
 ```
 
-Outputs land in `mac/ScanwrMac/dist/` (e.g. `scanwr-0.0.9.dmg`).
+Outputs land in `mac/ScanwrMac/dist/` (e.g. `scanwr-0.0.10.dmg`).

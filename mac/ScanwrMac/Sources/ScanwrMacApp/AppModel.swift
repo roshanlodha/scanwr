@@ -14,6 +14,7 @@ final class AppModel: ObservableObject {
     @Published var samples: [SampleMetadata] = []
     @Published var outputDirectory: String = ""
     @Published var projectName: String = "scanwr-project"
+    @Published var recentProjects: [String] = []
 
     // Logs
     @Published var logs: [String] = []
@@ -24,6 +25,106 @@ final class AppModel: ObservableObject {
     @Published var progressMessage: String = ""
 
     private let rpc = PythonRPCClient()
+
+    var hasProject: Bool {
+        !outputDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !projectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var projectPath: URL? {
+        let base = outputDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = projectName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if base.isEmpty || name.isEmpty { return nil }
+        return URL(fileURLWithPath: base).appendingPathComponent(name)
+    }
+
+    func loadRecents() {
+        recentProjects = UserDefaults.standard.array(forKey: "scanwr.recentProjects") as? [String] ?? []
+    }
+
+    func addRecent(_ path: String) {
+        var items = recentProjects
+        items.removeAll(where: { $0 == path })
+        items.insert(path, at: 0)
+        recentProjects = Array(items.prefix(12))
+        UserDefaults.standard.set(recentProjects, forKey: "scanwr.recentProjects")
+    }
+
+    func removeRecent(_ path: String) {
+        recentProjects.removeAll(where: { $0 == path })
+        UserDefaults.standard.set(recentProjects, forKey: "scanwr.recentProjects")
+    }
+
+    func openProject(at url: URL) {
+        let fm = FileManager.default
+        var projectURL = url
+        if url.lastPathComponent == ".scanwr" {
+            projectURL = url.deletingLastPathComponent()
+        } else if fm.fileExists(atPath: url.appendingPathComponent(".scanwr").path) {
+            projectURL = url
+        } else {
+            appendLog("ERROR: Selected folder is not a scanwr project (missing .scanwr/).")
+            return
+        }
+
+        outputDirectory = projectURL.deletingLastPathComponent().path
+        projectName = projectURL.lastPathComponent
+        addRecent(projectURL.path)
+
+        // Load metadata.txt if present
+        let metaURL = projectURL.appendingPathComponent(".scanwr/metadata.txt")
+        if let text = try? String(contentsOf: metaURL) {
+            samples = Self.parseMetadata(text)
+            appendLog("Loaded project: \(projectURL.path)")
+        } else {
+            samples = []
+            appendLog("Opened project (no metadata): \(projectURL.path)")
+        }
+    }
+
+    func createProject(baseDir: URL, name: String) {
+        let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else { return }
+
+        let projectURL = baseDir.appendingPathComponent(clean)
+        let scanwrURL = projectURL.appendingPathComponent(".scanwr")
+        let checkpointsURL = scanwrURL.appendingPathComponent("checkpoints")
+        let historyURL = scanwrURL.appendingPathComponent("history")
+
+        do {
+            try FileManager.default.createDirectory(at: checkpointsURL, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: historyURL, withIntermediateDirectories: true)
+            let metaURL = scanwrURL.appendingPathComponent("metadata.txt")
+            if !FileManager.default.fileExists(atPath: metaURL.path) {
+                try "sample\tgroup\tpath\treader\n".write(to: metaURL, atomically: true, encoding: .utf8)
+            }
+            outputDirectory = baseDir.path
+            projectName = clean
+            samples = []
+            addRecent(projectURL.path)
+            appendLog("Created project: \(projectURL.path)")
+        } catch {
+            appendLog("ERROR: Create project failed: \(error)")
+        }
+    }
+
+    private static func parseMetadata(_ text: String) -> [SampleMetadata] {
+        var out: [SampleMetadata] = []
+        let lines = text.split(whereSeparator: \.isNewline)
+        guard !lines.isEmpty else { return [] }
+        for (idx, raw) in lines.enumerated() {
+            if idx == 0 { continue } // header
+            let parts = raw.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+            if parts.count < 3 { continue }
+            let sample = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+            let group = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+            let path = parts[2].trimmingCharacters(in: .whitespacesAndNewlines)
+            let reader = (parts.count >= 4 ? parts[3] : "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if sample.isEmpty || group.isEmpty || path.isEmpty { continue }
+            out.append(SampleMetadata(sample: sample, group: group, path: path, reader: reader))
+        }
+        return out
+    }
 
     func appendLog(_ line: String) {
         logs.append(line)

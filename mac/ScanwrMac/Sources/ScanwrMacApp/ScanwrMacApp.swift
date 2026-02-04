@@ -6,7 +6,7 @@ struct ScanwrMacApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            ShellView()
                 .environmentObject(appModel)
         }
         .windowStyle(.titleBar)
