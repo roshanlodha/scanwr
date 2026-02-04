@@ -30,8 +30,8 @@ Each scGUI “project” is just a folder on disk. The app stores state in a sin
 
 ## Release packaging
 
-- Current version: `0.1.3`
-- Build outputs: `mac/ScanwrMac/dist/scGUI.app` and `mac/ScanwrMac/dist/scGUI-0.1.3.dmg`
+- Current version: `0.1.4`
+- Build outputs: `mac/ScanwrMac/dist/scGUI.app` and `mac/ScanwrMac/dist/scGUI-0.1.4.dmg`
 
 ## Development & contributing
 

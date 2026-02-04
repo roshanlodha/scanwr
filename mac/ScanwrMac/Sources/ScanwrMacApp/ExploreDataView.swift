@@ -2,6 +2,136 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
+private struct KeyPickerButton: View {
+    var label: String
+    @Binding var selection: String
+    var options: [KeyOption]
+    var allowNone: Bool
+
+    @State private var isPresenting: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button {
+                isPresenting = true
+            } label: {
+                HStack(spacing: 8) {
+                    Text(currentLabel())
+                        .foregroundStyle(selection.isEmpty ? .secondary : .primary)
+                        .lineLimit(1)
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .foregroundStyle(.secondary)
+                        .imageScale(.small)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.bordered)
+            .sheet(isPresented: $isPresenting) {
+                KeyPickerSheet(
+                    title: label,
+                    selection: $selection,
+                    options: options,
+                    allowNone: allowNone
+                )
+            }
+        }
+    }
+
+    private func currentLabel() -> String {
+        if selection.isEmpty { return allowNone ? "(none)" : "Select…" }
+        return options.first(where: { $0.id == selection })?.label ?? selection
+    }
+}
+
+private struct KeyPickerSheet: View {
+    var title: String
+    @Binding var selection: String
+    var options: [KeyOption]
+    var allowNone: Bool
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var query: String = ""
+
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Text(title)
+                    .font(.headline)
+                Spacer()
+                Button("Done") { dismiss() }
+            }
+
+            TextField("Search…", text: $query)
+                .textFieldStyle(.roundedBorder)
+
+            List {
+                if allowNone {
+                    Section {
+                        Button {
+                            selection = ""
+                            dismiss()
+                        } label: {
+                            HStack {
+                                Text("(none)")
+                                Spacer()
+                                if selection.isEmpty { Image(systemName: "checkmark") }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                ForEach(groupedSections(), id: \.0) { sectionName, items in
+                    Section(sectionName) {
+                        ForEach(items) { opt in
+                            Button {
+                                selection = opt.id
+                                dismiss()
+                            } label: {
+                                HStack {
+                                    Text(opt.label)
+                                    Spacer()
+                                    if selection == opt.id { Image(systemName: "checkmark") }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .frame(minWidth: 520, minHeight: 520)
+    }
+
+    private func groupedSections() -> [(String, [KeyOption])] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let filtered = options.filter { opt in
+            if q.isEmpty { return true }
+            return opt.label.lowercased().contains(q) || opt.id.lowercased().contains(q)
+        }
+
+        func sectionName(for opt: KeyOption) -> String {
+            if opt.label.hasPrefix("obsm.") { return "Embeddings (obsm)" }
+            if opt.label.hasPrefix("obs.") { return "Metadata (obs)" }
+            if opt.label.hasPrefix("gene.") { return "Genes (var)" }
+            return "Other"
+        }
+
+        let grouped = Dictionary(grouping: filtered, by: sectionName)
+        let order = ["Embeddings (obsm)", "Metadata (obs)", "Genes (var)", "Other"]
+        return order.compactMap { name in
+            guard let items = grouped[name], !items.isEmpty else { return nil }
+            return (name, items)
+        }
+    }
+}
+
 struct ExploreDataView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
@@ -18,7 +148,7 @@ struct ExploreDataView: View {
     @State private var isInspecting: Bool = false
     @State private var inspectError: String?
 
-    // Key refs (encoded as "obs:<col>" or "gene:<name>")
+    // Key refs (encoded as "obs:<col>", "gene:<name>", or "obsm:<key>:<dim>")
     @State private var xRef: String = ""
     @State private var yRef: String = ""
     @State private var colorRef: String = ""
@@ -337,21 +467,7 @@ struct ExploreDataView: View {
         options: [KeyOption],
         allowNone: Bool = false
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Picker(label, selection: selection) {
-                if allowNone {
-                    Text("(none)").tag("")
-                } else {
-                    Text("Select…").tag("")
-                }
-                ForEach(options) { opt in
-                    Text(opt.label).tag(opt.id)
-                }
-            }
-        }
+        KeyPickerButton(label: label, selection: selection, options: options, allowNone: allowNone)
     }
 
     private func keyOptions(inspect: AdataInspectResult) -> [KeyOption] {
@@ -383,7 +499,7 @@ struct ExploreDataView: View {
     private func xOptions(inspect: AdataInspectResult) -> [KeyOption] {
         switch plotType {
         case .scatter:
-            return obsNumericOptions(inspect: inspect) + geneOptions(inspect: inspect)
+            return embeddingOptions(inspect: inspect) + obsNumericOptions(inspect: inspect) + geneOptions(inspect: inspect)
         case .violin, .box:
             return obsCategoricalOptions(inspect: inspect)
         case .density:
@@ -394,7 +510,7 @@ struct ExploreDataView: View {
     private func yOptions(inspect: AdataInspectResult) -> [KeyOption] {
         switch plotType {
         case .scatter:
-            return obsNumericOptions(inspect: inspect) + geneOptions(inspect: inspect)
+            return embeddingOptions(inspect: inspect) + obsNumericOptions(inspect: inspect) + geneOptions(inspect: inspect)
         case .violin, .box:
             return obsNumericOptions(inspect: inspect) + geneOptions(inspect: inspect)
         case .density:
@@ -411,6 +527,33 @@ struct ExploreDataView: View {
         case .density:
             return []
         }
+    }
+
+    private func embeddingOptions(inspect: AdataInspectResult, dimLimit: Int = 10) -> [KeyOption] {
+        // Prefer common embeddings first.
+        let preferred = ["X_umap", "X_pca", "X_tsne"]
+        let dims = inspect.obsmDims
+        if dims.isEmpty { return [] }
+
+        var keys = Array(dims.keys)
+        keys.sort { a, b in
+            let ia = preferred.firstIndex(of: a) ?? Int.max
+            let ib = preferred.firstIndex(of: b) ?? Int.max
+            if ia != ib { return ia < ib }
+            return a.localizedCaseInsensitiveCompare(b) == .orderedAscending
+        }
+
+        var out: [KeyOption] = []
+        for k in keys {
+            let n = max(0, dims[k] ?? 0)
+            let take = min(n, dimLimit)
+            for d in 0..<take {
+                let id = "obsm:\(k):\(d)"
+                let label = "obsm.\(k)[\(d + 1)]"
+                out.append(KeyOption(id: id, label: label))
+            }
+        }
+        return out
     }
 
     private func ensureKeySelectionsValid(inspect: AdataInspectResult) {

@@ -21,7 +21,7 @@ SCANWR_PYTHON=/Users/roshanlodha/Documents/scanwr/venv/bin/python swift run Scan
 
 The app bundle id is `com.roshanlodha.scanwr`.
 
-Current release version: `0.1.3`
+Current release version: `0.1.4`
 
 Note: Leiden clustering (`scanpy.tl.leiden`) requires optional Python deps `leidenalg` + `igraph`.
 The embedded runtime build script installs these automatically; if you maintain your own `venv/`,
@@ -82,4 +82,4 @@ cd mac/ScanwrMac
 ./scripts/make_dmg.sh
 ```
 
-Outputs land in `mac/ScanwrMac/dist/` (e.g. `scGUI-0.1.3.dmg`).
+Outputs land in `mac/ScanwrMac/dist/` (e.g. `scGUI-0.1.4.dmg`).

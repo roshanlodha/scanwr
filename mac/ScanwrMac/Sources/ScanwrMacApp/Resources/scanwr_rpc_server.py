@@ -118,6 +118,25 @@ def inspect_h5ad(path: str, var_names_limit: int = 5000) -> Dict[str, Any]:
     except Exception:
         layers = []
 
+    obsm_dims: Dict[str, int] = {}
+    try:
+        import numpy as np  # type: ignore
+
+        obsm = getattr(adata, "obsm", None)
+        if obsm is not None:
+            keys = list(getattr(obsm, "keys", lambda: [])())
+            for k in keys:
+                try:
+                    arr = np.asarray(obsm[k])
+                    if arr.ndim == 1:
+                        obsm_dims[str(k)] = 1
+                    elif arr.ndim == 2:
+                        obsm_dims[str(k)] = int(arr.shape[1])
+                except Exception:
+                    continue
+    except Exception:
+        obsm_dims = {}
+
     try:
         var_names_all = list(getattr(adata, "var_names", []))
     except Exception:
@@ -150,6 +169,7 @@ def inspect_h5ad(path: str, var_names_limit: int = 5000) -> Dict[str, Any]:
         "varNamesTruncated": bool(truncated),
         "layers": sorted(map(str, layers)),
         "hasRaw": bool(has_raw),
+        "obsmDims": {k: int(v) for k, v in sorted(obsm_dims.items())},
     }
 
 
@@ -278,11 +298,11 @@ def plot_violin(params: Dict[str, Any]) -> Dict[str, Any]:
 def _parse_keyref(keyref: str) -> Tuple[str, str]:
     s = str(keyref or "").strip()
     if ":" not in s:
-        raise ValueError(f"Invalid key reference (expected obs:<col> or gene:<name>): {s}")
+        raise ValueError(f"Invalid key reference (expected obs:<col>, gene:<name>, or obsm:<key>:<dim>): {s}")
     kind, name = s.split(":", 1)
     kind = kind.strip().lower()
     name = name.strip()
-    if kind not in ("obs", "gene") or not name:
+    if kind not in ("obs", "gene", "obsm") or not name:
         raise ValueError(f"Invalid key reference: {s}")
     return kind, name
 
@@ -296,6 +316,35 @@ def _vector_from_keyref(adata: Any, keyref: str, layer: str | None, use_raw: boo
             return adata.obs[name].to_numpy()
         except Exception:
             return adata.obs[name].values
+
+    if kind == "obsm":
+        # Expected: "obsm:<key>:<dim>" (dim is 0-based). If dim is omitted, default to 0.
+        if ":" in name:
+            obsm_key, dim_raw = name.split(":", 1)
+            obsm_key = obsm_key.strip()
+            dim_raw = dim_raw.strip()
+            if not dim_raw:
+                dim = 0
+            else:
+                dim = int(dim_raw)
+        else:
+            obsm_key = name.strip()
+            dim = 0
+        if not obsm_key:
+            raise ValueError(f"Invalid obsm key reference: {keyref}")
+        obsm = getattr(adata, "obsm", None)
+        if obsm is None or obsm_key not in obsm:
+            raise ValueError(f"obsm key not found: {obsm_key}")
+        arr = np.asarray(obsm[obsm_key])
+        if arr.ndim == 1:
+            if dim != 0:
+                raise ValueError(f"obsm key is 1D; dim must be 0: {obsm_key}")
+            return arr
+        if arr.ndim == 2:
+            if dim < 0 or dim >= arr.shape[1]:
+                raise ValueError(f"obsm dim out of range: {obsm_key}:{dim} (n={arr.shape[1]})")
+            return arr[:, dim]
+        raise ValueError(f"Unsupported obsm value for key: {obsm_key}")
 
     # gene
     view = adata
@@ -399,7 +448,18 @@ def plot_custom(params: Dict[str, Any]) -> Dict[str, Any]:
         if not keyref:
             return ""
         kind, name = _parse_keyref(str(keyref))
-        return name if kind == "obs" else f"{name} (expr)"
+        if kind == "obs":
+            return name
+        if kind == "gene":
+            return f"{name} (expr)"
+        # obsm: "X_umap:0"
+        if ":" in name:
+            k, d = name.split(":", 1)
+            try:
+                return f"{k}[{int(d) + 1}]"
+            except Exception:
+                return k
+        return name
 
     if not xlabel:
         xlabel = _default_label(xref)

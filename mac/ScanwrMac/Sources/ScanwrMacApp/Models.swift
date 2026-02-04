@@ -130,6 +130,8 @@ struct AdataInspectResult: Codable, Hashable {
     var varNamesTruncated: Bool
     var layers: [String]
     var hasRaw: Bool
+    // Mapping of adata.obsm key -> number of dimensions (columns)
+    var obsmDims: [String: Int]
 }
 
 struct ViolinPlotRequest: Codable, Hashable {
@@ -167,6 +169,7 @@ struct CustomPlotRequest: Codable, Hashable {
     // Key references are encoded strings:
     // - "obs:<column>"
     // - "gene:<var_name>"
+    // - "obsm:<key>:<dim>" (dim is 0-based; e.g. obsm:X_umap:0)
     var x: String?
     var y: String?
     var color: String?
