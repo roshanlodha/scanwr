@@ -30,17 +30,31 @@ struct NodeInspector: View {
                 CalculateQCMetricsInspector(params: $node.params)
             } else if node.specId == "scanpy.pp.calculate_qc_metrics" {
                 CalculateQCMetricsInspector(params: $node.params)
+            } else if node.specId == "rapids_singlecell.pp.calculate_qc_metrics" {
+                CalculateQCMetricsInspector(params: $node.params)
             } else if node.specId == "scanpy.pp.filter_cells" {
+                FilterCellsInspector(params: $node.params)
+            } else if node.specId == "rapids_singlecell.pp.filter_cells" {
                 FilterCellsInspector(params: $node.params)
             } else if node.specId == "scanpy.pp.filter_genes" {
                 FilterGenesInspector(params: $node.params)
+            } else if node.specId == "rapids_singlecell.pp.filter_genes" {
+                FilterGenesInspector(params: $node.params)
             } else if node.specId == "scanpy.pp.scrublet" {
+                ScrubletInspector(params: $node.params)
+            } else if node.specId == "rapids_singlecell.pp.scrublet" {
                 ScrubletInspector(params: $node.params)
             } else if node.specId == "scanpy.pp.highly_variable_genes" {
                 HighlyVariableGenesInspector(params: $node.params)
+            } else if node.specId == "rapids_singlecell.pp.highly_variable_genes" {
+                HighlyVariableGenesInspector(params: $node.params)
             } else if node.specId == "scanpy.pp.normalize_total" {
                 NormalizeTotalInspector(params: $node.params)
+            } else if node.specId == "rapids_singlecell.pp.normalize_total" {
+                NormalizeTotalInspector(params: $node.params)
             } else if node.specId == "scanpy.tl.leiden" {
+                LeidenInspector(params: $node.params)
+            } else if node.specId == "rapids_singlecell.tl.leiden" {
                 LeidenInspector(params: $node.params)
             } else {
                 GenericParamsInspector(params: $node.params)

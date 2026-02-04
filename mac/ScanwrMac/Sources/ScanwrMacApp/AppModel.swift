@@ -144,6 +144,7 @@ final class AppModel: ObservableObject {
         do {
             let specs: [ModuleSpec] = try await rpc.call(method: "list_modules", params: [:])
             availableModules = specs
+            normalizeLoadedWorkflowForAvailableModules()
             appendLog("Modules: loaded \(specs.count)")
         } catch {
             let msg = "list_modules ERROR: \(error)"
@@ -348,6 +349,36 @@ final class AppModel: ObservableObject {
         return node.id
     }
 
+    func appendStep(spec: ModuleSpec) {
+        // This UI currently treats the pipeline as a linear chain; keep links consistent with node order.
+        let base = CGPoint(x: 220, y: 160)
+        let stepX = Self.canvasNodeSize.width + Self.canvasGridSpacing * 6
+        let pos = CGPoint(x: base.x + CGFloat(nodes.count) * stepX, y: base.y)
+        _ = addNode(spec: spec, at: pos)
+        rebuildLinksLinear()
+    }
+
+    func moveSteps(fromOffsets: IndexSet, toOffset: Int) {
+        nodes.move(fromOffsets: fromOffsets, toOffset: toOffset)
+        rebuildLinksLinear()
+    }
+
+    func moveNode(id: UUID, by delta: Int) {
+        guard delta != 0 else { return }
+        guard let idx = nodes.firstIndex(where: { $0.id == id }) else { return }
+        let newIndex = max(0, min(nodes.count - 1, idx + delta))
+        if newIndex == idx { return }
+        let item = nodes.remove(at: idx)
+        nodes.insert(item, at: newIndex)
+        rebuildLinksLinear()
+    }
+
+    func removeNode(id: UUID) {
+        nodes.removeAll(where: { $0.id == id })
+        if selectedNodeId == id { selectedNodeId = nil }
+        rebuildLinksLinear()
+    }
+
     private func snapToCanvasGrid(_ point: CGPoint) -> CGPoint {
         let spacing = Self.canvasGridSpacing
         let size = Self.canvasNodeSize
@@ -432,7 +463,12 @@ final class AppModel: ObservableObject {
     }
 
     func spec(for specId: String) -> ModuleSpec? {
-        availableModules.first(where: { $0.id == specId })
+        if let exact = availableModules.first(where: { $0.id == specId }) { return exact }
+        let normalized = normalizeModuleSpecId(specId, preferRapids: preferRapidsModules)
+        if normalized != specId {
+            return availableModules.first(where: { $0.id == normalized })
+        }
+        return nil
     }
 
     func nodeBinding(id: UUID) -> Binding<PipelineNode>? {
@@ -458,9 +494,7 @@ final class AppModel: ObservableObject {
 
     func removeSelectedNode() {
         guard let id = selectedNodeId else { return }
-        nodes.removeAll(where: { $0.id == id })
-        links.removeAll(where: { $0.fromNodeId == id || $0.toNodeId == id })
-        selectedNodeId = nil
+        removeNode(id: id)
     }
 
     // MARK: Current workflow persistence (.scanwr/template.json)
@@ -496,9 +530,10 @@ final class AppModel: ObservableObject {
         }
 
         if let t = WorkflowTemplate.load(from: url) {
-            nodes = t.nodes.map { $0.toNode() }
+            nodes = t.nodes.map { $0.toNode(preferRapids: preferRapidsModules) }
             links = t.links.map { $0.toLink() }
             selectedNodeId = nil
+            normalizePipelineToLinearChain()
             appendLog("Loaded workflow: .scanwr/template.json")
         } else {
             nodes = []
@@ -597,9 +632,10 @@ final class AppModel: ObservableObject {
     }
 
     func applyTemplate(_ t: WorkflowTemplate) {
-        nodes = t.nodes.map { $0.toNode() }
+        nodes = t.nodes.map { $0.toNode(preferRapids: preferRapidsModules) }
         links = t.links.map { $0.toLink() }
         selectedNodeId = nil
+        normalizePipelineToLinearChain()
         appendLog("Applied template: \(t.name)")
     }
 
@@ -709,6 +745,53 @@ final class AppModel: ObservableObject {
         if ordered.count != nodes.count { return nodes }
         return ordered
     }
+
+    // MARK: Pipeline normalization (linear chain UI)
+
+    private var preferRapidsModules: Bool {
+        availableModules.contains(where: { $0.id.hasPrefix("rapids_singlecell.") })
+    }
+
+    private func normalizeLoadedWorkflowForAvailableModules() {
+        // If we loaded a workflow before modules arrived, spec ids may not match the module list (e.g. RAPIDS ids).
+        // Normalize ids in-place so the UI renders names and the backend can run.
+        guard !nodes.isEmpty else { return }
+        var changed = false
+        for idx in nodes.indices {
+            let before = nodes[idx].specId
+            let after = normalizeModuleSpecId(before, preferRapids: preferRapidsModules)
+            if before != after {
+                nodes[idx].specId = after
+                changed = true
+            }
+        }
+        if changed {
+            // Links reference node UUIDs; safe to keep as-is.
+            normalizePipelineToLinearChain()
+        }
+    }
+
+    func normalizePipelineToLinearChain() {
+        // Backend currently enforces a simple linear chain; make sure links reflect the current node ordering.
+        let ordered = orderedPipeline()
+        if ordered.map(\.id) != nodes.map(\.id) {
+            nodes = ordered
+        }
+        rebuildLinksLinear()
+    }
+
+    func rebuildLinksLinear() {
+        if nodes.count <= 1 {
+            links = []
+            return
+        }
+        var out: [PipelineLink] = []
+        out.reserveCapacity(nodes.count - 1)
+        for i in 0..<(nodes.count - 1) {
+            out.append(PipelineLink(fromNodeId: nodes[i].id, toNodeId: nodes[i + 1].id))
+        }
+        links = out
+    }
 }
 
 // MARK: Template model
@@ -749,8 +832,13 @@ struct WorkflowNode: Codable, Hashable {
         params = n.params
     }
 
-    func toNode() -> PipelineNode {
-        PipelineNode(id: id, specId: normalizeModuleSpecId(specId), position: CGPointCodable(CGPoint(x: x, y: y)), params: params)
+    func toNode(preferRapids: Bool) -> PipelineNode {
+        PipelineNode(
+            id: id,
+            specId: normalizeModuleSpecId(specId, preferRapids: preferRapids),
+            position: CGPointCodable(CGPoint(x: x, y: y)),
+            params: params
+        )
     }
 }
 
@@ -778,31 +866,41 @@ private extension JSONEncoder {
     }
 }
 
-private func normalizeModuleSpecId(_ id: String) -> String {
-    switch id {
-    case "pp.calculate_qc_metrics", "scanpy.pp.calculate_qc_metrics":
-        return "rapids_singlecell.pp.calculate_qc_metrics"
-    case "scanpy.pp.filter_cells":
-        return "rapids_singlecell.pp.filter_cells"
-    case "scanpy.pp.filter_genes":
-        return "rapids_singlecell.pp.filter_genes"
-    case "scanpy.pp.scrublet":
-        return "rapids_singlecell.pp.scrublet"
-    case "scanpy.pp.highly_variable_genes":
-        return "rapids_singlecell.pp.highly_variable_genes"
-    case "scanpy.pp.normalize_total":
-        return "rapids_singlecell.pp.normalize_total"
-    case "scanpy.pp.log1p":
-        return "rapids_singlecell.pp.log1p"
-    case "scanpy.tl.pca":
-        return "rapids_singlecell.pp.pca"
-    case "scanpy.pp.neighbors":
-        return "rapids_singlecell.pp.neighbors"
-    case "scanpy.tl.umap":
-        return "rapids_singlecell.tl.umap"
-    case "scanpy.tl.leiden":
-        return "rapids_singlecell.tl.leiden"
-    default:
-        return id
+private func normalizeModuleSpecId(_ id: String, preferRapids: Bool) -> String {
+    let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.isEmpty { return id }
+
+    let scanpyToRapids: [String: String] = [
+        "pp.calculate_qc_metrics": "rapids_singlecell.pp.calculate_qc_metrics",
+        "scanpy.pp.calculate_qc_metrics": "rapids_singlecell.pp.calculate_qc_metrics",
+        "scanpy.pp.filter_cells": "rapids_singlecell.pp.filter_cells",
+        "scanpy.pp.filter_genes": "rapids_singlecell.pp.filter_genes",
+        "scanpy.pp.scrublet": "rapids_singlecell.pp.scrublet",
+        "scanpy.pp.highly_variable_genes": "rapids_singlecell.pp.highly_variable_genes",
+        "scanpy.pp.normalize_total": "rapids_singlecell.pp.normalize_total",
+        "scanpy.pp.log1p": "rapids_singlecell.pp.log1p",
+        "scanpy.tl.pca": "rapids_singlecell.pp.pca",
+        "scanpy.pp.neighbors": "rapids_singlecell.pp.neighbors",
+        "scanpy.tl.umap": "rapids_singlecell.tl.umap",
+        "scanpy.tl.leiden": "rapids_singlecell.tl.leiden",
+    ]
+
+    let rapidsToScanpy: [String: String] = [
+        "rapids_singlecell.pp.calculate_qc_metrics": "scanpy.pp.calculate_qc_metrics",
+        "rapids_singlecell.pp.filter_cells": "scanpy.pp.filter_cells",
+        "rapids_singlecell.pp.filter_genes": "scanpy.pp.filter_genes",
+        "rapids_singlecell.pp.scrublet": "scanpy.pp.scrublet",
+        "rapids_singlecell.pp.highly_variable_genes": "scanpy.pp.highly_variable_genes",
+        "rapids_singlecell.pp.normalize_total": "scanpy.pp.normalize_total",
+        "rapids_singlecell.pp.log1p": "scanpy.pp.log1p",
+        "rapids_singlecell.pp.pca": "scanpy.tl.pca",
+        "rapids_singlecell.pp.neighbors": "scanpy.pp.neighbors",
+        "rapids_singlecell.tl.umap": "scanpy.tl.umap",
+        "rapids_singlecell.tl.leiden": "scanpy.tl.leiden",
+    ]
+
+    if preferRapids {
+        return scanpyToRapids[trimmed] ?? trimmed
     }
+    return rapidsToScanpy[trimmed] ?? (trimmed == "pp.calculate_qc_metrics" ? "scanpy.pp.calculate_qc_metrics" : trimmed)
 }

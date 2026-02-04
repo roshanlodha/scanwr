@@ -747,6 +747,24 @@ def _run_module(adata, spec_id: str, params: Dict[str, Any]) -> None:
     # Backwards compatibility (older ids)
     if spec_id == "pp.calculate_qc_metrics":
         spec_id = "scanpy.pp.calculate_qc_metrics"
+    # UI may persist GPU-preferring ids even when `rapids_singlecell` isn't present.
+    # For now, transparently fall back to Scanpy equivalents.
+    if spec_id.startswith("rapids_singlecell."):
+        rapids_to_scanpy = {
+            "rapids_singlecell.pp.filter_cells": "scanpy.pp.filter_cells",
+            "rapids_singlecell.pp.filter_genes": "scanpy.pp.filter_genes",
+            "rapids_singlecell.pp.scrublet": "scanpy.pp.scrublet",
+            "rapids_singlecell.pp.highly_variable_genes": "scanpy.pp.highly_variable_genes",
+            "rapids_singlecell.pp.calculate_qc_metrics": "scanpy.pp.calculate_qc_metrics",
+            "rapids_singlecell.pp.normalize_total": "scanpy.pp.normalize_total",
+            "rapids_singlecell.pp.log1p": "scanpy.pp.log1p",
+            # Note: RAPIDS uses scanpy.tl.pca semantics; some older templates used a pp.* id.
+            "rapids_singlecell.pp.pca": "scanpy.tl.pca",
+            "rapids_singlecell.pp.neighbors": "scanpy.pp.neighbors",
+            "rapids_singlecell.tl.umap": "scanpy.tl.umap",
+            "rapids_singlecell.tl.leiden": "scanpy.tl.leiden",
+        }
+        spec_id = rapids_to_scanpy.get(spec_id, spec_id)
 
     def _opt_int(key: str) -> Optional[int]:
         v = (params or {}).get(key)
