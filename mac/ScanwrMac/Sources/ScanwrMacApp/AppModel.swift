@@ -41,6 +41,9 @@ final class AppModel: ObservableObject {
 
     // App settings
     @Published var verbosity: Int = 3
+    @Published var pipelineBuilderShowConsole: Bool = false {
+        didSet { UserDefaults.standard.set(pipelineBuilderShowConsole, forKey: "scgui.pipelineBuilder.showConsole") }
+    }
 
     private let rpc = PythonRPCClient()
     private var workflowSaveWorkItem: DispatchWorkItem?
@@ -115,6 +118,8 @@ final class AppModel: ObservableObject {
         } else {
             verbosity = 3
         }
+
+        pipelineBuilderShowConsole = UserDefaults.standard.bool(forKey: "scgui.pipelineBuilder.showConsole")
     }
 
     func setVerbosity(_ level: Int) {
@@ -463,6 +468,10 @@ final class AppModel: ObservableObject {
                 "create_dotplot": .bool(false),
                 "create_heatmap": .bool(true),
             ]
+        case "scanpy.tl.pca", "rapids_singlecell.pp.pca":
+            return ["create_scatterplot": .bool(true)]
+        case "scanpy.tl.umap", "rapids_singlecell.tl.umap":
+            return ["create_scatterplot": .bool(true)]
         default:
             return [:]
         }

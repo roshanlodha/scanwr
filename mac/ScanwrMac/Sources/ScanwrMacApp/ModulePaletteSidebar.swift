@@ -2,8 +2,6 @@ import SwiftUI
 
 struct ModulePaletteSidebar: View {
     @EnvironmentObject private var model: AppModel
-    @Binding var showSettings: Bool
-    @Binding var showConsole: Bool
     @State private var query: String = ""
 
     var body: some View {
@@ -12,51 +10,6 @@ struct ModulePaletteSidebar: View {
                 Text("Modules")
                     .font(.headline)
                 Spacer()
-
-                Button {
-                    showSettings = true
-                } label: {
-                    Image(systemName: "info.circle")
-                        .imageScale(.medium)
-                }
-                .buttonStyle(.plain)
-                .help("Settings")
-                .disabled(model.isRunning)
-
-                Button {
-                    showConsole.toggle()
-                } label: {
-                    Image(systemName: showConsole ? "terminal.fill" : "terminal")
-                        .imageScale(.medium)
-                }
-                .buttonStyle(.plain)
-                .help("Console")
-
-                if model.isRunning {
-                    Button {
-                        Task { await model.stopRun() }
-                    } label: {
-                        Image(systemName: "stop.circle.fill")
-                            .imageScale(.medium)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Stop run")
-                } else {
-                    Button {
-                        model.startRun()
-                    } label: {
-                        Image(systemName: "play.circle.fill")
-                            .imageScale(.medium)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Run pipeline")
-                    .disabled(
-                        model.outputDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        || model.projectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        || model.samples.isEmpty
-                        || model.nodes.isEmpty
-                    )
-                }
             }
 
             TextField("Search…", text: $query)

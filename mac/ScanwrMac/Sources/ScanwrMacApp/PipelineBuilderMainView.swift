@@ -1,9 +1,11 @@
 import SwiftUI
+import AppKit
 import UniformTypeIdentifiers
 
 struct PipelineBuilderMainView: View {
     @EnvironmentObject private var model: AppModel
     @Binding var isDropTarget: Bool
+    @State private var draggingNodeId: UUID?
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -31,65 +33,107 @@ struct PipelineBuilderMainView: View {
         .onDeleteCommand {
             model.removeSelectedNode()
         }
-        .overlay(alignment: .topTrailing) {
-            if let selected = model.selectedNodeId,
-               let binding = model.nodeBinding(id: selected) {
-                NodeInspector(node: binding)
-                    .frame(width: 360)
-                    .padding(12)
-                    .background(.ultraThinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .shadow(radius: 10)
-                    .padding(24)
-            }
-        }
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Pipeline")
-                    .font(.headline)
-                Text("Double-click a module to append. Drag modules into this panel to add.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Button {
-                guard let id = model.selectedNodeId else { return }
-                withAnimation(.snappy(duration: 0.12)) {
-                    model.moveNode(id: id, by: -1)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Pipeline")
+                        .font(.headline)
+                    Text("Double-click a module to append. Drag modules into this panel to add.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-            } label: {
-                Label("Up", systemImage: "chevron.up")
-            }
-            .buttonStyle(.bordered)
-            .disabled(model.selectedNodeId == nil || model.nodes.count <= 1)
 
-            Button {
-                guard let id = model.selectedNodeId else { return }
-                withAnimation(.snappy(duration: 0.12)) {
-                    model.moveNode(id: id, by: 1)
+                Spacer()
+
+                Button {
+                    openProjectFolder()
+                } label: {
+                    Label("Open Folder", systemImage: "folder")
                 }
-            } label: {
-                Label("Down", systemImage: "chevron.down")
-            }
-            .buttonStyle(.bordered)
-            .disabled(model.selectedNodeId == nil || model.nodes.count <= 1)
+                .buttonStyle(.bordered)
+                .disabled(!model.hasProject)
 
-            Button(role: .destructive) {
-                model.nodes = []
-                model.links = []
-                model.selectedNodeId = nil
-            } label: {
-                Label("Clear", systemImage: "trash")
+                Button {
+                    guard let id = model.selectedNodeId else { return }
+                    withAnimation(.snappy(duration: 0.12)) {
+                        model.moveNode(id: id, by: -1)
+                    }
+                } label: {
+                    Label("Up", systemImage: "chevron.up")
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.selectedNodeId == nil || model.nodes.count <= 1 || model.isRunning)
+
+                Button {
+                    guard let id = model.selectedNodeId else { return }
+                    withAnimation(.snappy(duration: 0.12)) {
+                        model.moveNode(id: id, by: 1)
+                    }
+                } label: {
+                    Label("Down", systemImage: "chevron.down")
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.selectedNodeId == nil || model.nodes.count <= 1 || model.isRunning)
+
+                Button(role: .destructive) {
+                    model.nodes = []
+                    model.links = []
+                    model.selectedNodeId = nil
+                } label: {
+                    Label("Clear", systemImage: "trash")
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.nodes.isEmpty || model.isRunning)
+
+                if model.isRunning {
+                    Button(role: .destructive) {
+                        Task { await model.stopRun() }
+                    } label: {
+                        Label("Stop", systemImage: "stop.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
+                    .controlSize(.large)
+                } else {
+                    Button {
+                        model.startRun()
+                    } label: {
+                        Label("Run Pipeline", systemImage: "play.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                    .controlSize(.large)
+                    .disabled(
+                        model.outputDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || model.projectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || model.samples.isEmpty
+                        || model.nodes.isEmpty
+                    )
+                }
             }
-            .buttonStyle(.bordered)
-            .disabled(model.nodes.isEmpty || model.isRunning)
+
+            if model.isRunning || model.progressPercent > 0 || !model.progressMessage.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ProgressView(value: model.progressPercent)
+                        .progressViewStyle(.linear)
+                    if !model.progressMessage.isEmpty {
+                        Text(model.progressMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+            }
         }
         .padding(12)
+    }
+
+    private func openProjectFolder() {
+        guard let url = model.projectPath else { return }
+        NSWorkspace.shared.open(url)
     }
 
     private var content: some View {
@@ -110,10 +154,14 @@ struct PipelineBuilderMainView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { model.selectedNodeId = nil }
             } else {
-                List(selection: $model.selectedNodeId) {
+                List {
                     ForEach(Array(model.nodes.enumerated()), id: \.element.id) { idx, node in
-                        PipelineStepRow(stepIndex: idx + 1, node: node)
-                            .tag(node.id)
+                        PipelineStepRow(
+                            stepIndex: idx + 1,
+                            node: node,
+                            isExpanded: model.selectedNodeId == node.id,
+                            draggingNodeId: $draggingNodeId
+                        )
                     }
                     .onDelete { indexSet in
                         // Delete supports multi-select; remove by id to avoid index shifting issues.
@@ -155,6 +203,8 @@ private struct PipelineStepRow: View {
     @EnvironmentObject private var model: AppModel
     var stepIndex: Int
     var node: PipelineNode
+    var isExpanded: Bool
+    @Binding var draggingNodeId: UUID?
 
     var body: some View {
         let spec = model.spec(for: node.specId)
@@ -162,57 +212,83 @@ private struct PipelineStepRow: View {
         let title = spec?.title ?? node.specId
         let subtitle = spec?.scanpyQualname ?? node.specId
 
-        HStack(spacing: 12) {
-            Text("\(stepIndex)")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 22, height: 22)
-                .background(Color.primary.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 7))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.body.weight(.semibold))
-                    .lineLimit(1)
-                Text(subtitle)
-                    .font(.caption)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Text("\(stepIndex)")
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .frame(width: 22, height: 22)
+                    .background(Color.primary.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 7))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.body.weight(.semibold))
+                        .lineLimit(1)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 10)
+
+                HStack(spacing: 6) {
+                    Button {
+                        withAnimation(.snappy(duration: 0.12)) {
+                            model.moveNode(id: node.id, by: -1)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.up")
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(stepIndex == 1 || model.isRunning)
+
+                    Button {
+                        withAnimation(.snappy(duration: 0.12)) {
+                            model.moveNode(id: node.id, by: 1)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.down")
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(stepIndex == model.nodes.count || model.isRunning)
+                }
+                .foregroundStyle(.secondary)
+
+                Text(group.badge)
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color(hex: group.colorHex).opacity(0.16))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
-            Spacer(minLength: 10)
-
-            HStack(spacing: 6) {
-                Button {
-                    withAnimation(.snappy(duration: 0.12)) {
-                        model.moveNode(id: node.id, by: -1)
-                    }
-                } label: {
-                    Image(systemName: "chevron.up")
-                }
-                .buttonStyle(.borderless)
-                .disabled(stepIndex == 1 || model.isRunning)
-
-                Button {
-                    withAnimation(.snappy(duration: 0.12)) {
-                        model.moveNode(id: node.id, by: 1)
-                    }
-                } label: {
-                    Image(systemName: "chevron.down")
-                }
-                .buttonStyle(.borderless)
-                .disabled(stepIndex == model.nodes.count || model.isRunning)
+            if isExpanded, let binding = model.nodeBinding(id: node.id) {
+                NodeInspectorInline(node: binding)
             }
-            .foregroundStyle(.secondary)
-
-            Text(group.badge)
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(Color(hex: group.colorHex).opacity(0.16))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, isExpanded ? 8 : 4)
+        .listRowBackground(isExpanded ? Color.primary.opacity(0.05) : Color.clear)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.snappy(duration: 0.18)) {
+                model.selectedNodeId = (model.selectedNodeId == node.id) ? nil : node.id
+            }
+        }
+        .onDrag {
+            guard !model.isRunning else { return NSItemProvider() }
+            draggingNodeId = node.id
+            return NSItemProvider(object: node.id.uuidString as NSString)
+        }
+        .onDrop(
+            of: [UTType.plainText],
+            delegate: PipelineStepDropDelegate(
+                targetNodeId: node.id,
+                model: model,
+                draggingNodeId: $draggingNodeId
+            )
+        )
         .contextMenu {
             Button {
                 model.moveNode(id: node.id, by: -1)
@@ -234,5 +310,33 @@ private struct PipelineStepRow: View {
                 Label("Remove", systemImage: "trash")
             }
         }
+    }
+}
+
+private struct PipelineStepDropDelegate: DropDelegate {
+    var targetNodeId: UUID
+    var model: AppModel
+    @Binding var draggingNodeId: UUID?
+
+    func dropEntered(info: DropInfo) {
+        guard !model.isRunning else { return }
+        guard let draggingId = draggingNodeId, draggingId != targetNodeId else { return }
+        guard let fromIndex = model.nodes.firstIndex(where: { $0.id == draggingId }) else { return }
+        guard let toIndex = model.nodes.firstIndex(where: { $0.id == targetNodeId }) else { return }
+        guard fromIndex != toIndex else { return }
+
+        withAnimation(.snappy(duration: 0.12)) {
+            let destination = (toIndex > fromIndex) ? (toIndex + 1) : toIndex
+            model.moveSteps(fromOffsets: IndexSet(integer: fromIndex), toOffset: destination)
+        }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingNodeId = nil
+        return true
     }
 }

@@ -912,6 +912,16 @@ def _run_module(
 
     if spec_id == "scanpy.tl.pca":
         sc.tl.pca(adata)
+        create_scatterplot = _opt_bool("create_scatterplot", True)
+        if create_scatterplot and plots_dir is not None:
+            import matplotlib.pyplot as plt
+
+            sample_dir = _sample_plots_dir(plots_dir, sample)
+            if sample_dir is not None:
+                out = sample_dir / "pca_scatter.png"
+                sc.pl.pca(adata, show=False)
+                plt.gcf().savefig(str(out), format="png", dpi=160, bbox_inches="tight")
+                plt.close("all")
         return
 
     if spec_id == "scanpy.pp.neighbors":
@@ -920,6 +930,16 @@ def _run_module(
 
     if spec_id == "scanpy.tl.umap":
         sc.tl.umap(adata)
+        create_scatterplot = _opt_bool("create_scatterplot", True)
+        if create_scatterplot and plots_dir is not None:
+            import matplotlib.pyplot as plt
+
+            sample_dir = _sample_plots_dir(plots_dir, sample)
+            if sample_dir is not None:
+                out = sample_dir / "umap_scatter.png"
+                sc.pl.umap(adata, show=False)
+                plt.gcf().savefig(str(out), format="png", dpi=160, bbox_inches="tight")
+                plt.close("all")
         return
 
     if spec_id == "scanpy.tl.leiden":
@@ -972,20 +992,21 @@ def _run_module(
         create_heatmap = _opt_bool("create_heatmap", True)
 
         if (create_dotplot or create_heatmap) and plots_dir is not None:
-            plots_dir.mkdir(parents=True, exist_ok=True)
-            sample_slug = _sanitize_filename(sample or "sample")
+            sample_dir = _sample_plots_dir(plots_dir, sample)
+            if sample_dir is None:
+                return
             group_slug = _sanitize_filename(groupby)
 
             if create_dotplot:
-                out = plots_dir / f"{sample_slug}__rank_genes_groups__{group_slug}__dotplot.svg"
+                out = sample_dir / f"rank_genes_groups__{group_slug}__dotplot.png"
                 sc.pl.rank_genes_groups_dotplot(adata, groupby=groupby, show=False)
-                plt.gcf().savefig(str(out), format="svg", bbox_inches="tight")
+                plt.gcf().savefig(str(out), format="png", dpi=160, bbox_inches="tight")
                 plt.close("all")
 
             if create_heatmap:
-                out = plots_dir / f"{sample_slug}__rank_genes_groups__{group_slug}__heatmap.svg"
+                out = sample_dir / f"rank_genes_groups__{group_slug}__heatmap.png"
                 sc.pl.rank_genes_groups_heatmap(adata, groupby=groupby, show=False)
-                plt.gcf().savefig(str(out), format="svg", bbox_inches="tight")
+                plt.gcf().savefig(str(out), format="png", dpi=160, bbox_inches="tight")
                 plt.close("all")
         return
 
@@ -1091,14 +1112,23 @@ def _sanitize_filename(s: str) -> str:
     return "".join(out).strip("_") or "step"
 
 
+def _sample_plots_dir(plots_root: Path | None, sample: str | None) -> Path | None:
+    if plots_root is None:
+        return None
+    sample_slug = _sanitize_filename((sample or "").strip() or "sample")
+    out = plots_root / sample_slug
+    out.mkdir(parents=True, exist_ok=True)
+    return out
+
+
 def run_pipeline(input_path: str, output_dir: str, steps: List[Dict[str, Any]]) -> Dict[str, Any]:
     import anndata as ad  # local import after env set
 
     in_path = Path(input_path).expanduser().resolve()
     out_dir = Path(output_dir).expanduser().resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
-    plots_dir = out_dir / "plots"
-    plots_dir.mkdir(parents=True, exist_ok=True)
+    plots_root = out_dir / "plots"
+    plots_root.mkdir(parents=True, exist_ok=True)
 
     if not in_path.exists():
         raise FileNotFoundError(str(in_path))
@@ -1113,7 +1143,7 @@ def run_pipeline(input_path: str, output_dir: str, steps: List[Dict[str, Any]]) 
         spec_id = str(step.get("specId"))
         params = step.get("params") or {}
         _notify_log(f"Step {i}/{len(steps)}: {spec_id}")
-        _run_module(adata, spec_id, params, plots_dir=plots_dir, sample="single")
+        _run_module(adata, spec_id, params, plots_dir=plots_root, sample="single")
 
         ck_name = f"{i:02d}_{_sanitize_filename(spec_id)}.h5ad"
         ck_path = out_dir / ck_name
@@ -1167,10 +1197,10 @@ def run_pipeline_multi(output_dir: str, project_name: str, samples: List[Dict[st
     scanwr_dir.mkdir(parents=True, exist_ok=True)
     checkpoints_dir = scanwr_dir / "checkpoints"
     history_dir = scanwr_dir / "history"
-    plots_dir = scanwr_dir / "plots"
+    plots_root = project / "plots"
     checkpoints_dir.mkdir(parents=True, exist_ok=True)
     history_dir.mkdir(parents=True, exist_ok=True)
-    plots_dir.mkdir(parents=True, exist_ok=True)
+    plots_root.mkdir(parents=True, exist_ok=True)
 
     # Persist metadata for reload/debug.
     meta_path = scanwr_dir / "metadata.txt"
@@ -1263,7 +1293,7 @@ def run_pipeline_multi(output_dir: str, project_name: str, samples: List[Dict[st
                 step_count=len(steps),
             )
             _notify_log(f"[{sample}] Step {i}/{len(steps)}: {spec_id}")
-            _run_module(adata, spec_id, params, plots_dir=plots_dir, sample=sample)
+            _run_module(adata, spec_id, params, plots_dir=plots_root, sample=sample)
 
             _notify_log(f"[{sample}] Updating checkpoint.h5ad")
             adata.write_h5ad(str(checkpoint_h5ad))

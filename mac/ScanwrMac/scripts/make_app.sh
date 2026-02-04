@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST="$ROOT/dist"
 APP_NAME="scGUI"
 BUNDLE_ID="com.roshanlodha.scanwr"
-VERSION="0.2.2"
+VERSION="0.2.5"
 
 PY_RUNTIME_DIR="${SCANWR_PY_RUNTIME_DIR:-$DIST/python-runtime/python}"
 

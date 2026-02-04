@@ -5,18 +5,78 @@ struct NodeInspector: View {
     @Binding var node: PipelineNode
 
     var body: some View {
+        NodeInspectorWrapper(
+            title: model.spec(for: node.specId)?.title ?? node.specId,
+            subtitle: model.spec(for: node.specId)?.scanpyQualname ?? node.specId,
+            onClose: { model.selectedNodeId = nil },
+            content: {
+                NodeInspectorContent(specId: node.specId, params: $node.params)
+
+                Divider()
+
+                Button(role: .destructive) {
+                    model.removeSelectedNode()
+                } label: {
+                    Label("Remove module", systemImage: "trash")
+                }
+            }
+        )
+    }
+}
+
+struct NodeInspectorInline: View {
+    @EnvironmentObject private var model: AppModel
+    @Binding var node: PipelineNode
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            NodeInspectorContent(specId: node.specId, params: $node.params)
+
+            Divider()
+
+            Button(role: .destructive) {
+                model.removeNode(id: node.id)
+            } label: {
+                Label("Remove module", systemImage: "trash")
+            }
+        }
+        .padding(12)
+        .background(Color.primary.opacity(0.04))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+private struct NodeInspectorWrapper<Content: View>: View {
+    var title: String
+    var subtitle: String
+    var onClose: () -> Void
+    let content: Content
+
+    init(
+        title: String,
+        subtitle: String,
+        onClose: @escaping () -> Void,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.onClose = onClose
+        self.content = content()
+    }
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(model.spec(for: node.specId)?.title ?? node.specId)
+                    Text(title)
                         .font(.headline)
-                    Text(model.spec(for: node.specId)?.scanpyQualname ?? node.specId)
+                    Text(subtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button {
-                    model.selectedNodeId = nil
+                    onClose()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
@@ -26,53 +86,62 @@ struct NodeInspector: View {
 
             Divider()
 
-            if node.specId == "pp.calculate_qc_metrics" {
-                CalculateQCMetricsInspector(params: $node.params)
-            } else if node.specId == "scanpy.pp.calculate_qc_metrics" {
-                CalculateQCMetricsInspector(params: $node.params)
-            } else if node.specId == "rapids_singlecell.pp.calculate_qc_metrics" {
-                CalculateQCMetricsInspector(params: $node.params)
-            } else if node.specId == "scanpy.pp.filter_cells" {
-                FilterCellsInspector(params: $node.params)
-            } else if node.specId == "rapids_singlecell.pp.filter_cells" {
-                FilterCellsInspector(params: $node.params)
-            } else if node.specId == "scanpy.pp.filter_genes" {
-                FilterGenesInspector(params: $node.params)
-            } else if node.specId == "rapids_singlecell.pp.filter_genes" {
-                FilterGenesInspector(params: $node.params)
-            } else if node.specId == "scanpy.pp.scrublet" {
-                ScrubletInspector(params: $node.params)
-            } else if node.specId == "rapids_singlecell.pp.scrublet" {
-                ScrubletInspector(params: $node.params)
-            } else if node.specId == "scanpy.pp.highly_variable_genes" {
-                HighlyVariableGenesInspector(params: $node.params)
-            } else if node.specId == "rapids_singlecell.pp.highly_variable_genes" {
-                HighlyVariableGenesInspector(params: $node.params)
-            } else if node.specId == "scanpy.pp.normalize_total" {
-                NormalizeTotalInspector(params: $node.params)
-            } else if node.specId == "rapids_singlecell.pp.normalize_total" {
-                NormalizeTotalInspector(params: $node.params)
-            } else if node.specId == "scanpy.tl.leiden" {
-                LeidenInspector(params: $node.params)
-            } else if node.specId == "rapids_singlecell.tl.leiden" {
-                LeidenInspector(params: $node.params)
-            } else if node.specId == "scanpy.tl.rank_genes_groups" {
-                RankGenesGroupsInspector(params: $node.params)
-            } else if node.specId == "rapids_singlecell.tl.rank_genes_groups" {
-                RankGenesGroupsInspector(params: $node.params)
-            } else {
-                GenericParamsInspector(params: $node.params)
-            }
-
-            Divider()
-
-            Button(role: .destructive) {
-                model.removeSelectedNode()
-            } label: {
-                Label("Remove module", systemImage: "trash")
-            }
+            content
         }
         .padding(12)
+    }
+}
+
+private struct NodeInspectorContent: View {
+    var specId: String
+    @Binding var params: [String: JSONValue]
+
+    var body: some View {
+        if specId == "pp.calculate_qc_metrics" {
+            CalculateQCMetricsInspector(params: $params)
+        } else if specId == "scanpy.pp.calculate_qc_metrics" {
+            CalculateQCMetricsInspector(params: $params)
+        } else if specId == "rapids_singlecell.pp.calculate_qc_metrics" {
+            CalculateQCMetricsInspector(params: $params)
+        } else if specId == "scanpy.pp.filter_cells" {
+            FilterCellsInspector(params: $params)
+        } else if specId == "rapids_singlecell.pp.filter_cells" {
+            FilterCellsInspector(params: $params)
+        } else if specId == "scanpy.pp.filter_genes" {
+            FilterGenesInspector(params: $params)
+        } else if specId == "rapids_singlecell.pp.filter_genes" {
+            FilterGenesInspector(params: $params)
+        } else if specId == "scanpy.pp.scrublet" {
+            ScrubletInspector(params: $params)
+        } else if specId == "rapids_singlecell.pp.scrublet" {
+            ScrubletInspector(params: $params)
+        } else if specId == "scanpy.pp.highly_variable_genes" {
+            HighlyVariableGenesInspector(params: $params)
+        } else if specId == "rapids_singlecell.pp.highly_variable_genes" {
+            HighlyVariableGenesInspector(params: $params)
+        } else if specId == "scanpy.pp.normalize_total" {
+            NormalizeTotalInspector(params: $params)
+        } else if specId == "rapids_singlecell.pp.normalize_total" {
+            NormalizeTotalInspector(params: $params)
+        } else if specId == "scanpy.tl.pca" {
+            PCAInspector(params: $params)
+        } else if specId == "rapids_singlecell.pp.pca" {
+            PCAInspector(params: $params)
+        } else if specId == "scanpy.tl.leiden" {
+            LeidenInspector(params: $params)
+        } else if specId == "rapids_singlecell.tl.leiden" {
+            LeidenInspector(params: $params)
+        } else if specId == "scanpy.tl.umap" {
+            UMAPInspector(params: $params)
+        } else if specId == "rapids_singlecell.tl.umap" {
+            UMAPInspector(params: $params)
+        } else if specId == "scanpy.tl.rank_genes_groups" {
+            RankGenesGroupsInspector(params: $params)
+        } else if specId == "rapids_singlecell.tl.rank_genes_groups" {
+            RankGenesGroupsInspector(params: $params)
+        } else {
+            GenericParamsInspector(params: $params)
+        }
     }
 }
 
@@ -329,6 +398,48 @@ private struct LeidenInspector: View {
     }
 }
 
+private struct PCAInspector: View {
+    @Binding var params: [String: JSONValue]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Parameters").font(.subheadline).bold()
+            Text("Runs PCA (writes embeddings into `adata.obsm['X_pca']`). Optional plot saved as `Project/plots/{sample}/pca_scatter.png`.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Toggle("Create Scatterplot", isOn: bindingBool("create_scatterplot", default: true))
+        }
+    }
+
+    private func bindingBool(_ key: String, default def: Bool) -> Binding<Bool> {
+        Binding<Bool>(
+            get: { params[key]?.boolValue ?? def },
+            set: { params[key] = .bool($0) }
+        )
+    }
+}
+
+private struct UMAPInspector: View {
+    @Binding var params: [String: JSONValue]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Parameters").font(.subheadline).bold()
+            Text("Runs UMAP (writes embeddings into `adata.obsm['X_umap']`). Optional plot saved as `Project/plots/{sample}/umap_scatter.png`.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Toggle("Create Scatterplot", isOn: bindingBool("create_scatterplot", default: true))
+        }
+    }
+
+    private func bindingBool(_ key: String, default def: Bool) -> Binding<Bool> {
+        Binding<Bool>(
+            get: { params[key]?.boolValue ?? def },
+            set: { params[key] = .bool($0) }
+        )
+    }
+}
+
 private struct RankGenesGroupsInspector: View {
     @Binding var params: [String: JSONValue]
 
@@ -351,7 +462,7 @@ private struct RankGenesGroupsInspector: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Parameters").font(.subheadline).bold()
-            Text("Ranks marker genes per cluster/group (writes results into `adata.uns['rank_genes_groups']`). Optional plots are saved as SVG under `Project/.scanwr/plots/`.")
+            Text("Ranks marker genes per cluster/group (writes results into `adata.uns['rank_genes_groups']`). Optional plots are saved under `Project/plots/{sample}/` as PNG.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

@@ -19,7 +19,7 @@ Each scGUI “project” is just a folder on disk. The app stores state in a sin
 - `Project/.scanwr/template.json`: current pipeline canvas workflow
 - `Project/.scanwr/checkpoints/`: per-sample `.h5ad` outputs
 - `Project/.scanwr/history/`: per-sample cached step signatures (for incremental re-runs)
-- `Project/.scanwr/plots/`: plots (SVG)
+- `Project/plots/`: plots (organized as `plots/{sample}/*.png`)
 - `Project/.scanwr/templates/`: optional workflow templates
 
 ## Repo layout
@@ -30,8 +30,8 @@ Each scGUI “project” is just a folder on disk. The app stores state in a sin
 
 ## Release packaging
 
-- Current version: `0.2.2`
-- Build outputs: `mac/ScanwrMac/dist/scGUI.app` and `mac/ScanwrMac/dist/scGUI-0.2.2.dmg`
+- Current version: `0.2.5`
+- Build outputs: `mac/ScanwrMac/dist/scGUI.app` and `mac/ScanwrMac/dist/scGUI-0.2.5.dmg`
 
 ## Development & contributing
 

@@ -1,50 +1,55 @@
 {
-  "id" : "132065C3-486A-46C2-99EC-1077E9406F5A",
+  "id" : "13F0F1B5-4056-4690-AC69-09BEB2F4AC0C",
   "links" : [
     {
       "fromNodeId" : "6706A02B-F3FE-471D-A243-3CB49479C543",
-      "id" : "833B482E-7993-45CA-A1B6-A44FE698B3EA",
+      "id" : "B7B512E9-BF13-405F-94B1-08364291BD3E",
       "toNodeId" : "031EDEE9-25DB-4D06-82E7-0B804B7A055B"
     },
     {
       "fromNodeId" : "031EDEE9-25DB-4D06-82E7-0B804B7A055B",
-      "id" : "3CB083B8-7C7E-45B4-883F-E71C7EF77B45",
+      "id" : "DF754E02-2A3B-4A93-8C68-FFED4A160144",
       "toNodeId" : "40E9F14F-E294-4F13-B346-5B1AA181965A"
     },
     {
       "fromNodeId" : "40E9F14F-E294-4F13-B346-5B1AA181965A",
-      "id" : "53FE95CF-FC40-441B-836F-FC00E9479E1F",
+      "id" : "CF170A74-36CF-4962-BC82-907BE7CECB1E",
       "toNodeId" : "F8E9B582-5B08-496B-B4CD-12741F3D5330"
     },
     {
       "fromNodeId" : "F8E9B582-5B08-496B-B4CD-12741F3D5330",
-      "id" : "625737AE-3D94-4FD2-B047-BCE5A0EF1EB3",
+      "id" : "9E475E64-9E86-4592-B008-64CD4DBE5BD0",
       "toNodeId" : "5943A185-C6AE-4994-90C9-EA6A8F220F91"
     },
     {
       "fromNodeId" : "5943A185-C6AE-4994-90C9-EA6A8F220F91",
-      "id" : "137A43E4-F527-4C0C-BD67-005ED359A82D",
+      "id" : "7AC3A9D9-9B6A-420E-95DB-433768151161",
       "toNodeId" : "68B25649-BFDD-4995-95F3-193B123C70EF"
     },
     {
       "fromNodeId" : "68B25649-BFDD-4995-95F3-193B123C70EF",
-      "id" : "4E2C8EC4-D375-46B1-AD53-D26397C14155",
+      "id" : "D77AEF83-2637-4A30-B3B7-BA110DE32F84",
       "toNodeId" : "F8478827-0F96-4AAA-811F-263E0549A3F1"
     },
     {
       "fromNodeId" : "F8478827-0F96-4AAA-811F-263E0549A3F1",
-      "id" : "F5009371-4A19-4243-AF8D-98C7E510E730",
+      "id" : "92DA04D4-120C-42C9-84D8-1D43D18F7483",
       "toNodeId" : "039F73D1-EB56-4F47-9D54-59BF81E6BEB2"
     },
     {
       "fromNodeId" : "039F73D1-EB56-4F47-9D54-59BF81E6BEB2",
-      "id" : "6AA439D6-4596-43D5-99B9-02EB6AF341A0",
+      "id" : "458D7CB8-549B-4DFD-A8D2-7873B06C2399",
       "toNodeId" : "24C57864-D590-46B2-82B2-148E2F483CCB"
     },
     {
       "fromNodeId" : "24C57864-D590-46B2-82B2-148E2F483CCB",
-      "id" : "2D66B4DF-C623-4980-BBCC-11B5A9ADD007",
+      "id" : "6165A1F4-C2F8-49AB-8780-EB49F6FB8854",
       "toNodeId" : "8A05622B-AAAC-4050-AB4C-379F6DDD4F3E"
+    },
+    {
+      "fromNodeId" : "8A05622B-AAAC-4050-AB4C-379F6DDD4F3E",
+      "id" : "C826E893-9DBD-475F-B82E-EB5492736843",
+      "toNodeId" : "E338D961-9FF8-4366-A018-283E27A95E53"
     }
   ],
   "name" : "Template",
@@ -141,6 +146,17 @@
         "res" : "0.5"
       },
       "specId" : "scanpy.tl.leiden",
+      "x" : 3892,
+      "y" : 167
+    },
+    {
+      "id" : "E338D961-9FF8-4366-A018-283E27A95E53",
+      "params" : {
+        "create_dotplot" : false,
+        "create_heatmap" : true,
+        "groupby" : "leiden"
+      },
+      "specId" : "scanpy.tl.rank_genes_groups",
       "x" : 3892,
       "y" : 167
     }

@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST="$ROOT/dist"
 APP_NAME="scGUI"
 DMG_NAME="scGUI"
-VERSION="0.2.2"
+VERSION="0.2.5"
 
 APP="$DIST/$APP_NAME.app"
 if [[ ! -d "$APP" ]]; then

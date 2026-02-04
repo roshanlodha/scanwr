@@ -11,8 +11,10 @@ struct SettingsSheet: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Settings").font(.title3).bold()
 
-            GroupBox("App") {
+            GroupBox("Pipeline Builder") {
                 VStack(alignment: .leading, spacing: 10) {
+                    Toggle("Show Console", isOn: $model.pipelineBuilderShowConsole)
+
                     HStack {
                         Text("Verbosity")
                         Spacer()
