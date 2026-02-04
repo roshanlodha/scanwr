@@ -45,231 +45,23 @@ struct ExploreDataView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            HStack(spacing: 0) {
-                Form {
-                    Section("Data") {
-                        Picker("Sample", selection: $selectedSample) {
-                            Text("Select…").tag("")
-                            ForEach(model.samples.map(\.sample), id: \.self) { s in
-                                Text(s).tag(s)
-                            }
-                        }
-                        .onChange(of: selectedSample) { _, _ in
-                            resetForSample()
-                        }
-
-                        LabeledContent("h5ad") {
-                            Text(h5adPathForSelection() ?? "—")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-
-                        HStack {
-                            Button("Load keys") { Task { await loadKeys() } }
-                                .disabled(selectedSample.isEmpty || isInspecting)
-                            if isInspecting { ProgressView().controlSize(.small) }
-                        }
-
-                        if let inspectError {
-                            Text(inspectError)
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                                .textSelection(.enabled)
-                        }
+            HSplitView {
+                ScrollView(.vertical) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        dataSection
+                        keysSection
+                        violinSection
+                        outputSection
                     }
-
-	                    Section("Keys") {
-	                        Picker("Source", selection: $keySource) {
-	                            Text("obs").tag(KeySource.obs)
-	                            Text("var").tag(KeySource.`var`)
-	                        }
-	                        .pickerStyle(.segmented)
-	                        .disabled(inspect == nil)
-
-	                        TextField("Filter…", text: $keyFilter)
-	                            .disabled(inspect == nil)
-
-	                        HStack {
-	                            VStack(alignment: .leading, spacing: 6) {
-	                                Text("Available")
-	                                    .font(.caption)
-	                                    .foregroundStyle(.secondary)
-	                                KeyPickerList(
-	                                    items: filteredAvailableKeys(),
-	                                    emptyText: "No keys.",
-	                                    onPick: { addKey($0) }
-	                                )
-	                                .frame(height: 200)
-	                            }
-	                            VStack(alignment: .leading, spacing: 6) {
-	                                Text("Selected")
-	                                    .font(.caption)
-	                                    .foregroundStyle(.secondary)
-	                                SelectedKeyList(
-	                                    items: selectedKeys,
-	                                    emptyText: "No keys selected.",
-	                                    onRemove: { k in selectedKeys.removeAll(where: { $0 == k }) }
-	                                )
-	                                .frame(height: 200)
-	                            }
-	                        }
-
-	                        if let inspect, inspect.varNamesTruncated {
-	                            Text("Note: showing \(inspect.varNames.count) / \(inspect.varNamesTotal) `var_names` (truncated). Use the filter box to find genes.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
-                    Section("Violin") {
-                        if let inspect {
-                            Picker("groupby", selection: $groupby) {
-                                Text("(none)").tag("")
-                                ForEach(inspect.groupbyCandidates, id: \.self) { k in
-                                    Text(k).tag(k)
-                                }
-                                if !inspect.groupbyCandidates.contains(groupby), !groupby.isEmpty {
-                                    Text(groupby).tag(groupby)
-                                }
-                            }
-                        } else {
-                            TextField("groupby (obs col)", text: $groupby)
-                                .disabled(true)
-                        }
-
-                        Toggle("log", isOn: $log)
-
-                        Picker("use_raw", selection: $useRaw) {
-                            Text("default").tag(TriBool.defaultValue)
-                            Text("true").tag(TriBool.trueValue)
-                            Text("false").tag(TriBool.falseValue)
-                        }
-
-                        Toggle("stripplot", isOn: $stripplot)
-
-                        HStack {
-                            Picker("jitter", selection: $jitterMode) {
-                                Text("bool").tag(JitterMode.bool)
-                                Text("float").tag(JitterMode.float)
-                            }
-                            .frame(width: 110)
-                            if jitterMode == .bool {
-                                Toggle("true", isOn: $jitterBool).labelsHidden()
-                            } else {
-                                TextField("e.g. 0.4", text: $jitterValue)
-                                    .frame(width: 120)
-                            }
-                            Spacer()
-                        }
-
-                        TextField("size (int)", text: $size)
-                            .frame(width: 220)
-
-                        if let inspect {
-                            Picker("layer", selection: $layer) {
-                                Text("(default)").tag("")
-                                ForEach(inspect.layers, id: \.self) { l in
-                                    Text(l).tag(l)
-                                }
-                                if !inspect.layers.contains(layer), !layer.isEmpty {
-                                    Text(layer).tag(layer)
-                                }
-                            }
-                        } else {
-                            TextField("layer", text: $layer)
-                                .disabled(true)
-                        }
-
-                        TextField("density_norm (width|area|count)", text: $densityNorm)
-                            .frame(width: 260)
-
-                        TextField("order (comma-separated)", text: $orderCSV)
-
-                        Toggle("multi_panel", isOn: $multiPanel)
-
-                        TextField("xlabel", text: $xlabel)
-                        TextField("ylabel (or comma-separated)", text: $ylabel)
-                        TextField("rotation (float)", text: $rotation)
-                        TextField("scale (optional)", text: $scale)
-
-                        Picker("show", selection: $show) {
-                            Text("default").tag(TriBool.defaultValue)
-                            Text("true").tag(TriBool.trueValue)
-                            Text("false").tag(TriBool.falseValue)
-                        }
-                        Text("Note: plots are always rendered headlessly; `show` is accepted but ignored for display.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        KeyValueEditor(values: $extraKwds, title: "kwds")
-                    }
-
-                    Section("Output") {
-                        LabeledContent("SVG path") {
-                            TextField("", text: $savePath)
-                                .textSelection(.enabled)
-                        }
-
-                        HStack {
-                            Button("Choose…") { chooseSavePath() }
-                            Button("Default") { setDefaultSavePath() }
-                            Spacer()
-                        }
-
-                        HStack {
-                            Button("Plot") { Task { await plot() } }
-                                .disabled(selectedKeys.isEmpty || selectedSample.isEmpty || isPlotting)
-                            if isPlotting { ProgressView().controlSize(.small) }
-                        }
-
-                        if let plotError {
-                            Text(plotError)
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                                .textSelection(.enabled)
-                        }
-                    }
+                    .padding(12)
                 }
-                .frame(minWidth: 520)
+                .frame(minWidth: 540, idealWidth: 560)
 
-                Divider()
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Preview").font(.headline)
-                    if let url = lastSVGURL {
-                        SVGWebView(fileURL: url)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(Color(NSColor.textBackgroundColor))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                            )
-                        HStack {
-                            Text(url.path)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .textSelection(.enabled)
-                                .lineLimit(1)
-                            Spacer()
-                            Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-                        }
-                    } else {
-                        VStack(spacing: 10) {
-                            Spacer()
-                            Text("No plot yet.")
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                previewSection
+                    .frame(minWidth: 420, idealWidth: 460)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             if selectedSample.isEmpty, let first = model.samples.first?.sample {
                 selectedSample = first
@@ -304,6 +96,252 @@ struct ExploreDataView: View {
             .help("Close")
         }
         .padding(12)
+    }
+
+    private var dataSection: some View {
+        GroupBox("Data") {
+            VStack(alignment: .leading, spacing: 10) {
+                Picker("Sample", selection: $selectedSample) {
+                    Text("Select…").tag("")
+                    ForEach(model.samples.map(\.sample), id: \.self) { s in
+                        Text(s).tag(s)
+                    }
+                }
+                .onChange(of: selectedSample) { _, _ in
+                    resetForSample()
+                }
+
+                LabeledContent("h5ad") {
+                    Text(h5adPathForSelection() ?? "—")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                HStack {
+                    Button("Load keys") { Task { await loadKeys() } }
+                        .disabled(selectedSample.isEmpty || isInspecting)
+                    if isInspecting { ProgressView().controlSize(.small) }
+                    Spacer()
+                }
+
+                if let inspectError {
+                    Text(inspectError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .textSelection(.enabled)
+                }
+            }
+            .padding(6)
+        }
+    }
+
+    private var keysSection: some View {
+        GroupBox("Keys") {
+            VStack(alignment: .leading, spacing: 10) {
+                Picker("Source", selection: $keySource) {
+                    Text("obs").tag(KeySource.obs)
+                    Text("var").tag(KeySource.`var`)
+                }
+                .pickerStyle(.segmented)
+                .disabled(inspect == nil)
+
+                TextField("Filter…", text: $keyFilter)
+                    .disabled(inspect == nil)
+
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Available")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        KeyPickerList(
+                            items: filteredAvailableKeys(),
+                            emptyText: "No keys.",
+                            onPick: { addKey($0) }
+                        )
+                        .frame(height: 220)
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Selected")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        SelectedKeyList(
+                            items: selectedKeys,
+                            emptyText: "No keys selected.",
+                            onRemove: { k in selectedKeys.removeAll(where: { $0 == k }) }
+                        )
+                        .frame(height: 220)
+                    }
+                }
+
+                if let inspect, inspect.varNamesTruncated {
+                    Text("Note: showing \(inspect.varNames.count) / \(inspect.varNamesTotal) `var_names` (truncated). Use the filter box to find genes.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(6)
+        }
+    }
+
+    private var violinSection: some View {
+        GroupBox("Violin") {
+            VStack(alignment: .leading, spacing: 10) {
+                if let inspect {
+                    Picker("groupby", selection: $groupby) {
+                        Text("(none)").tag("")
+                        ForEach(inspect.groupbyCandidates, id: \.self) { k in
+                            Text(k).tag(k)
+                        }
+                        if !inspect.groupbyCandidates.contains(groupby), !groupby.isEmpty {
+                            Text(groupby).tag(groupby)
+                        }
+                    }
+                } else {
+                    TextField("groupby (obs col)", text: $groupby)
+                        .disabled(true)
+                }
+
+                Toggle("log", isOn: $log)
+
+                Picker("use_raw", selection: $useRaw) {
+                    Text("default").tag(TriBool.defaultValue)
+                    Text("true").tag(TriBool.trueValue)
+                    Text("false").tag(TriBool.falseValue)
+                }
+                .frame(maxWidth: 240)
+
+                Toggle("stripplot", isOn: $stripplot)
+
+                HStack {
+                    Picker("jitter", selection: $jitterMode) {
+                        Text("bool").tag(JitterMode.bool)
+                        Text("float").tag(JitterMode.float)
+                    }
+                    .frame(width: 110)
+                    if jitterMode == .bool {
+                        Toggle("true", isOn: $jitterBool).labelsHidden()
+                    } else {
+                        TextField("e.g. 0.4", text: $jitterValue)
+                            .frame(width: 120)
+                    }
+                    Spacer()
+                }
+
+                TextField("size (int)", text: $size)
+                    .frame(maxWidth: 240)
+
+                if let inspect {
+                    Picker("layer", selection: $layer) {
+                        Text("(default)").tag("")
+                        ForEach(inspect.layers, id: \.self) { l in
+                            Text(l).tag(l)
+                        }
+                        if !inspect.layers.contains(layer), !layer.isEmpty {
+                            Text(layer).tag(layer)
+                        }
+                    }
+                    .frame(maxWidth: 320)
+                } else {
+                    TextField("layer", text: $layer)
+                        .disabled(true)
+                }
+
+                TextField("density_norm (width|area|count)", text: $densityNorm)
+                    .frame(maxWidth: 320)
+
+                TextField("order (comma-separated)", text: $orderCSV)
+
+                Toggle("multi_panel", isOn: $multiPanel)
+
+                TextField("xlabel", text: $xlabel)
+                TextField("ylabel (or comma-separated)", text: $ylabel)
+                TextField("rotation (float)", text: $rotation)
+                TextField("scale (optional)", text: $scale)
+
+                Picker("show", selection: $show) {
+                    Text("default").tag(TriBool.defaultValue)
+                    Text("true").tag(TriBool.trueValue)
+                    Text("false").tag(TriBool.falseValue)
+                }
+                .frame(maxWidth: 240)
+
+                Text("Note: plots are always rendered headlessly; `show` is accepted but ignored for display.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                KeyValueEditor(values: $extraKwds, title: "kwds")
+            }
+            .padding(6)
+        }
+    }
+
+    private var outputSection: some View {
+        GroupBox("Output") {
+            VStack(alignment: .leading, spacing: 10) {
+                LabeledContent("SVG path") {
+                    TextField("", text: $savePath)
+                        .textSelection(.enabled)
+                }
+
+                HStack {
+                    Button("Choose…") { chooseSavePath() }
+                    Button("Default") { setDefaultSavePath() }
+                    Spacer()
+                }
+
+                HStack {
+                    Button("Plot") { Task { await plot() } }
+                        .disabled(selectedKeys.isEmpty || selectedSample.isEmpty || isPlotting)
+                    if isPlotting { ProgressView().controlSize(.small) }
+                    Spacer()
+                }
+
+                if let plotError {
+                    Text(plotError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .textSelection(.enabled)
+                }
+            }
+            .padding(6)
+        }
+    }
+
+    private var previewSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Preview").font(.headline)
+            if let url = lastSVGURL {
+                SVGWebView(fileURL: url)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(NSColor.textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                    )
+                HStack {
+                    Text(url.path)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .lineLimit(1)
+                    Spacer()
+                    Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                }
+            } else {
+                VStack(spacing: 10) {
+                    Spacer()
+                    Text("No plot yet.")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func resetForSample() {
