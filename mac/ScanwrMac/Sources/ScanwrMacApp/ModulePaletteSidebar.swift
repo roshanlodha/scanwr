@@ -129,20 +129,29 @@ private struct ModuleRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 10)
-            if let ns = spec.namespace, ns != "core" {
-                Text(ns == "experimental" ? "exp" : (ns == "custom" ? "cust" : "ext"))
+            if spec.group == .custom || spec.namespace == "custom" {
+                Text("rl")
+                    .font(.caption)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color(hex: ModuleGroup.custom.colorHex).opacity(0.18))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            } else if let ns = spec.namespace, ns != "core" {
+                Text(ns == "experimental" ? "exp" : "ext")
                     .font(.caption)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(Color.primary.opacity(0.10))
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             }
-            Text(spec.group.badge)
-                .font(.caption)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color(hex: spec.group.colorHex).opacity(0.15))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+            if spec.group != .custom {
+                Text(spec.group.badge)
+                    .font(.caption)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color(hex: spec.group.colorHex).opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
         }
         .contentShape(Rectangle())
         .listRowBackground(Color.clear)

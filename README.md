@@ -41,8 +41,7 @@ You can switch between **Cohort (concat)** and **Per-sample** runs using the tog
 
 ## Release packaging
 
-- Current version: `0.3.1`
-- Build outputs: `mac/ScanwrMac/dist/scGUI.app` and `mac/ScanwrMac/dist/scGUI-0.3.1.dmg`
+- Build outputs: `mac/ScanwrMac/dist/scGUI.app` and `mac/ScanwrMac/dist/scGUI-*.dmg`
 
 ## Development & contributing
 

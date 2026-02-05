@@ -141,7 +141,7 @@ struct ExploreDataView: View {
     var showsPreview: Bool = true
     var plotURL: Binding<URL?>? = nil
 
-    @State private var selectedSample: String = ""
+    @State private var selectedData: DataSelection = .none
     @State private var plotType: PlotType = .scatter
 
     @State private var inspect: AdataInspectResult?
@@ -189,12 +189,12 @@ struct ExploreDataView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
-            if selectedSample.isEmpty, let first = model.samples.first?.sample {
-                selectedSample = first
+            if selectedData == .none, let first = model.samples.first?.sample {
+                selectedData = .sample(first)
             }
             Task { await loadInspectIfPossible() }
         }
-        .onChange(of: selectedSample) { _, _ in
+        .onChange(of: selectedData) { _, _ in
             resetForSelection()
             Task { await loadInspectIfPossible() }
         }
@@ -249,10 +249,11 @@ struct ExploreDataView: View {
         GroupBox("Data") {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
-                    Picker("Sample", selection: $selectedSample) {
-                        Text("Select…").tag("")
+                    Picker("Sample", selection: $selectedData) {
+                        Text("Select…").tag(DataSelection.none)
+                        Text("Cohort").tag(DataSelection.cohort)
                         ForEach(model.samples.map(\.sample), id: \.self) { s in
-                            Text(s).tag(s)
+                            Text(s).tag(DataSelection.sample(s))
                         }
                     }
                     Button {
@@ -262,7 +263,7 @@ struct ExploreDataView: View {
                     }
                     .buttonStyle(.borderless)
                     .help("Refresh keys")
-                    .disabled(selectedSample.isEmpty || isInspecting)
+                    .disabled(selectedData == .none || isInspecting)
                     if isInspecting { ProgressView().controlSize(.small) }
                 }
 
@@ -572,10 +573,16 @@ struct ExploreDataView: View {
     }
 
     private func h5adPathForSelection() -> String? {
-        guard !selectedSample.isEmpty, let project = model.projectPath else { return nil }
-        let safe = AppModel.sanitizeFilename(selectedSample)
-        let url = project.appendingPathComponent(".scanwr/checkpoints/\(safe).h5ad")
-        return url.path
+        guard selectedData != .none, let project = model.projectPath else { return nil }
+        switch selectedData {
+        case .none:
+            return nil
+        case .cohort:
+            return project.appendingPathComponent(".scanwr/checkpoints/cohort.h5ad").path
+        case .sample(let s):
+            let safe = AppModel.sanitizeFilename(s)
+            return project.appendingPathComponent(".scanwr/checkpoints/\(safe).h5ad").path
+        }
     }
 
     private func loadInspectIfPossible(force: Bool = false) async {
@@ -583,7 +590,7 @@ struct ExploreDataView: View {
         inspectError = nil
         guard let path = h5adPathForSelection() else { return }
         guard FileManager.default.fileExists(atPath: path) else {
-            inspectError = "Missing .h5ad for sample. Run the pipeline first."
+            inspectError = "Missing .h5ad. Run the pipeline first."
             return
         }
         if inspect != nil, !force { return }
@@ -599,8 +606,17 @@ struct ExploreDataView: View {
     }
 
     private func defaultDownloadFilename() -> String {
-        let s = selectedSample.trimmingCharacters(in: .whitespacesAndNewlines)
-        let safe = AppModel.sanitizeFilename(s.isEmpty ? "plot" : s)
+        let safe: String = {
+            switch selectedData {
+            case .none:
+                return "plot"
+            case .cohort:
+                return "cohort"
+            case .sample(let s):
+                let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+                return AppModel.sanitizeFilename(trimmed.isEmpty ? "sample" : trimmed)
+            }
+        }()
         return "\(safe)_\(plotType.rawValue).svg"
     }
 
@@ -624,7 +640,7 @@ struct ExploreDataView: View {
     }
 
     private func canPlot() -> Bool {
-        guard !selectedSample.isEmpty else { return false }
+        guard selectedData != .none else { return false }
         switch plotType {
         case .scatter:
             guard !xRef.isEmpty, !yRef.isEmpty else { return false }
@@ -639,7 +655,7 @@ struct ExploreDataView: View {
         plotError = nil
         guard let h5ad = h5adPathForSelection() else { return }
         guard FileManager.default.fileExists(atPath: h5ad) else {
-            plotError = "Missing .h5ad for sample. Run the pipeline first."
+            plotError = "Missing .h5ad. Run the pipeline first."
             return
         }
         isPlotting = true
@@ -678,6 +694,12 @@ struct ExploreDataView: View {
             plotError = String(describing: error)
         }
     }
+}
+
+private enum DataSelection: Hashable {
+    case none
+    case cohort
+    case sample(String)
 }
 
 private struct KeyOption: Identifiable, Hashable {
