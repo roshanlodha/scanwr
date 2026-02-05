@@ -446,17 +446,21 @@ private struct RankGenesGroupsInspector: View {
     @Binding var params: [String: JSONValue]
 
     private enum Groupby: String, CaseIterable, Identifiable {
+        case group
         case leiden
         case kmeans
         case louvain
+        case sample
 
         var id: String { rawValue }
 
         var title: String {
             switch self {
+            case .group: return "group"
             case .leiden: return "leiden"
             case .kmeans: return "k-means"
             case .louvain: return "louvain"
+            case .sample: return "sample"
             }
         }
     }
@@ -485,11 +489,11 @@ private struct RankGenesGroupsInspector: View {
     private func bindingGroupby() -> Binding<String> {
         Binding<String>(
             get: {
-                let raw = params["groupby"]?.stringValue ?? "leiden"
+                let raw = params["groupby"]?.stringValue ?? "group"
                 let s = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                 if s == "k-means" || s == "k_means" { return "kmeans" }
                 if Groupby.allCases.map(\.rawValue).contains(s) { return s }
-                return "leiden"
+                return "group"
             },
             set: { params["groupby"] = .string($0) }
         )

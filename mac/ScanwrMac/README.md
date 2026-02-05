@@ -5,6 +5,8 @@ scGUI, formerly scAnWr, is a native SwiftUI macOS front-end that talks to a Pyth
 ## Notes
 
 - Project state is persisted under `Project/.scanwr/` (including the current canvas workflow in `template.json`).
+- Multi-sample runs are concatenated into one AnnData (`Project/.scanwr/checkpoints/cohort.h5ad`) with `adata.obs["sample"]` and `adata.obs["group"]` populated from metadata.
+- The Pipeline panel includes a **Cohort (concat)** toggle to switch between concatenated cohort analysis and per-sample execution.
 - The Welcome screen includes buttons for Settings (verbosity slider) and clearing app cache.
 - Custom modules are exposed as `custom.<module>` (orange badge in the UI). `custom.select_group` filters cells by `adata.obs[group] == value` (e.g. `group=leiden`, `value=3` keeps cluster "3").
 
@@ -22,7 +24,7 @@ SCANWR_PYTHON=/Users/roshanlodha/Documents/scanwr/venv/bin/python swift run Scan
 
 The app bundle id is `com.roshanlodha.scanwr`.
 
-Current release version: `0.2.5`
+Current release version: `0.3.1`
 
 Note: Leiden clustering (e.g. `scanpy.tl.leiden`) may require optional Python deps `leidenalg` + `igraph`.
 The embedded runtime build script installs these automatically; if you maintain your own `venv/`,
@@ -83,4 +85,4 @@ cd mac/ScanwrMac
 ./scripts/make_dmg.sh
 ```
 
-Outputs land in `mac/ScanwrMac/dist/` (e.g. `scGUI-0.2.5.dmg`).
+Outputs land in `mac/ScanwrMac/dist/` (e.g. `scGUI-0.3.1.dmg`).

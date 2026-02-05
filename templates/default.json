@@ -1,61 +1,61 @@
 {
-  "id" : "13F0F1B5-4056-4690-AC69-09BEB2F4AC0C",
+  "id" : "552459FD-2C64-4B92-AA09-D045B3839C34",
   "links" : [
     {
-      "fromNodeId" : "6706A02B-F3FE-471D-A243-3CB49479C543",
-      "id" : "B7B512E9-BF13-405F-94B1-08364291BD3E",
-      "toNodeId" : "031EDEE9-25DB-4D06-82E7-0B804B7A055B"
+      "fromNodeId" : "D2A9020B-E9A0-4F4D-9375-1B40F2A9DA7E",
+      "id" : "302A4D56-0AC3-46ED-AB89-771E085B5D08",
+      "toNodeId" : "4C7D3B04-59D1-4996-97BF-F1F213F19590"
     },
     {
-      "fromNodeId" : "031EDEE9-25DB-4D06-82E7-0B804B7A055B",
-      "id" : "DF754E02-2A3B-4A93-8C68-FFED4A160144",
-      "toNodeId" : "40E9F14F-E294-4F13-B346-5B1AA181965A"
+      "fromNodeId" : "4C7D3B04-59D1-4996-97BF-F1F213F19590",
+      "id" : "5A06318E-E28D-451A-BAD9-DB81651C9219",
+      "toNodeId" : "252AC792-090E-4B1F-9D25-ABD3DAAC65BF"
     },
     {
-      "fromNodeId" : "40E9F14F-E294-4F13-B346-5B1AA181965A",
-      "id" : "CF170A74-36CF-4962-BC82-907BE7CECB1E",
-      "toNodeId" : "F8E9B582-5B08-496B-B4CD-12741F3D5330"
+      "fromNodeId" : "252AC792-090E-4B1F-9D25-ABD3DAAC65BF",
+      "id" : "9F65EB63-A19A-4472-8C92-1CF79309BE75",
+      "toNodeId" : "3E326345-86F1-483C-8F50-9F6ADC42BC85"
     },
     {
-      "fromNodeId" : "F8E9B582-5B08-496B-B4CD-12741F3D5330",
-      "id" : "9E475E64-9E86-4592-B008-64CD4DBE5BD0",
-      "toNodeId" : "5943A185-C6AE-4994-90C9-EA6A8F220F91"
+      "fromNodeId" : "3E326345-86F1-483C-8F50-9F6ADC42BC85",
+      "id" : "407CA778-69B5-4FE9-A24A-1B42B3208228",
+      "toNodeId" : "17F709A4-3573-468C-B90B-44A710B2B725"
     },
     {
-      "fromNodeId" : "5943A185-C6AE-4994-90C9-EA6A8F220F91",
-      "id" : "7AC3A9D9-9B6A-420E-95DB-433768151161",
-      "toNodeId" : "68B25649-BFDD-4995-95F3-193B123C70EF"
+      "fromNodeId" : "17F709A4-3573-468C-B90B-44A710B2B725",
+      "id" : "C7FC2891-53B1-4416-92D8-AAB358268165",
+      "toNodeId" : "2E0155EC-DC6D-470E-8386-754F4E247FDB"
     },
     {
-      "fromNodeId" : "68B25649-BFDD-4995-95F3-193B123C70EF",
-      "id" : "D77AEF83-2637-4A30-B3B7-BA110DE32F84",
-      "toNodeId" : "F8478827-0F96-4AAA-811F-263E0549A3F1"
+      "fromNodeId" : "2E0155EC-DC6D-470E-8386-754F4E247FDB",
+      "id" : "0BB02E6C-C1CF-4291-B6F4-00ED0DD71E40",
+      "toNodeId" : "DD67FB43-AA9E-4AB2-8D3A-2B77CF7FF6EC"
     },
     {
-      "fromNodeId" : "F8478827-0F96-4AAA-811F-263E0549A3F1",
-      "id" : "92DA04D4-120C-42C9-84D8-1D43D18F7483",
-      "toNodeId" : "039F73D1-EB56-4F47-9D54-59BF81E6BEB2"
+      "fromNodeId" : "DD67FB43-AA9E-4AB2-8D3A-2B77CF7FF6EC",
+      "id" : "D040A8D4-6431-4C0E-AF02-EAA150E75701",
+      "toNodeId" : "FB3032AF-692A-4D74-824F-7C2F3C3623F7"
     },
     {
-      "fromNodeId" : "039F73D1-EB56-4F47-9D54-59BF81E6BEB2",
-      "id" : "458D7CB8-549B-4DFD-A8D2-7873B06C2399",
-      "toNodeId" : "24C57864-D590-46B2-82B2-148E2F483CCB"
+      "fromNodeId" : "FB3032AF-692A-4D74-824F-7C2F3C3623F7",
+      "id" : "434AE679-8E92-4ADB-B2CF-EB60741CD8E9",
+      "toNodeId" : "5E60E36A-8154-4891-9FD0-8E9D800DC60E"
     },
     {
-      "fromNodeId" : "24C57864-D590-46B2-82B2-148E2F483CCB",
-      "id" : "6165A1F4-C2F8-49AB-8780-EB49F6FB8854",
-      "toNodeId" : "8A05622B-AAAC-4050-AB4C-379F6DDD4F3E"
+      "fromNodeId" : "5E60E36A-8154-4891-9FD0-8E9D800DC60E",
+      "id" : "7CB2DA20-7535-4AFD-B0AE-CCDF4E718770",
+      "toNodeId" : "EAA5E5CA-DBBA-4A0D-BFAE-C68EBDD8CFDA"
     },
     {
-      "fromNodeId" : "8A05622B-AAAC-4050-AB4C-379F6DDD4F3E",
-      "id" : "C826E893-9DBD-475F-B82E-EB5492736843",
-      "toNodeId" : "E338D961-9FF8-4366-A018-283E27A95E53"
+      "fromNodeId" : "EAA5E5CA-DBBA-4A0D-BFAE-C68EBDD8CFDA",
+      "id" : "17721106-673A-453A-B66E-61CAD8F2DC87",
+      "toNodeId" : "6D5AC20C-255A-44C4-8688-1426BD17EC01"
     }
   ],
   "name" : "Template",
   "nodes" : [
     {
-      "id" : "6706A02B-F3FE-471D-A243-3CB49479C543",
+      "id" : "D2A9020B-E9A0-4F4D-9375-1B40F2A9DA7E",
       "params" : {
         "log1p" : true,
         "percent_top" : "",
@@ -68,7 +68,7 @@
       "y" : 167
     },
     {
-      "id" : "031EDEE9-25DB-4D06-82E7-0B804B7A055B",
+      "id" : "4C7D3B04-59D1-4996-97BF-F1F213F19590",
       "params" : {
         "min_genes" : 100
       },
@@ -77,7 +77,7 @@
       "y" : 167
     },
     {
-      "id" : "40E9F14F-E294-4F13-B346-5B1AA181965A",
+      "id" : "252AC792-090E-4B1F-9D25-ABD3DAAC65BF",
       "params" : {
         "min_cells" : 3
       },
@@ -86,73 +86,73 @@
       "y" : 167
     },
     {
-      "id" : "F8E9B582-5B08-496B-B4CD-12741F3D5330",
+      "id" : "3E326345-86F1-483C-8F50-9F6ADC42BC85",
       "params" : {
         "target_sum" : ""
       },
       "specId" : "scanpy.pp.normalize_total",
-      "x" : 1696,
+      "x" : 1318,
       "y" : 167
     },
     {
-      "id" : "5943A185-C6AE-4994-90C9-EA6A8F220F91",
+      "id" : "17F709A4-3573-468C-B90B-44A710B2B725",
       "params" : {
 
       },
       "specId" : "scanpy.pp.log1p",
+      "x" : 1696,
+      "y" : 167
+    },
+    {
+      "id" : "2E0155EC-DC6D-470E-8386-754F4E247FDB",
+      "params" : {
+        "batch_key" : "",
+        "n_top_genes" : "3000"
+      },
+      "specId" : "scanpy.pp.highly_variable_genes",
       "x" : 2056,
       "y" : 167
     },
     {
-      "id" : "68B25649-BFDD-4995-95F3-193B123C70EF",
+      "id" : "DD67FB43-AA9E-4AB2-8D3A-2B77CF7FF6EC",
       "params" : {
-        "batch_key" : "",
-        "n_top_genes" : 2000
+        "create_scatterplot" : true
       },
-      "specId" : "scanpy.pp.highly_variable_genes",
+      "specId" : "scanpy.tl.pca",
       "x" : 2434,
       "y" : 167
     },
     {
-      "id" : "F8478827-0F96-4AAA-811F-263E0549A3F1",
-      "params" : {
-
-      },
-      "specId" : "scanpy.tl.pca",
-      "x" : 2794,
-      "y" : 167
-    },
-    {
-      "id" : "039F73D1-EB56-4F47-9D54-59BF81E6BEB2",
+      "id" : "FB3032AF-692A-4D74-824F-7C2F3C3623F7",
       "params" : {
 
       },
       "specId" : "scanpy.pp.neighbors",
+      "x" : 2794,
+      "y" : 167
+    },
+    {
+      "id" : "5E60E36A-8154-4891-9FD0-8E9D800DC60E",
+      "params" : {
+        "create_scatterplot" : true
+      },
+      "specId" : "scanpy.tl.umap",
       "x" : 3172,
       "y" : 167
     },
     {
-      "id" : "24C57864-D590-46B2-82B2-148E2F483CCB",
-      "params" : {
-
-      },
-      "specId" : "scanpy.tl.umap",
-      "x" : 3532,
-      "y" : 167
-    },
-    {
-      "id" : "8A05622B-AAAC-4050-AB4C-379F6DDD4F3E",
+      "id" : "EAA5E5CA-DBBA-4A0D-BFAE-C68EBDD8CFDA",
       "params" : {
         "res" : "0.5"
       },
       "specId" : "scanpy.tl.leiden",
-      "x" : 3892,
+      "x" : 3532,
       "y" : 167
     },
     {
-      "id" : "E338D961-9FF8-4366-A018-283E27A95E53",
+      "id" : "6D5AC20C-255A-44C4-8688-1426BD17EC01",
       "params" : {
-        "create_dotplot" : false,
+        "create_dotplot" : true,
         "create_heatmap" : true,
         "groupby" : "leiden"
       },

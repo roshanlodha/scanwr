@@ -56,27 +56,12 @@ struct PipelineBuilderMainView: View {
                 .buttonStyle(.bordered)
                 .disabled(!model.hasProject)
 
-                Button {
-                    guard let id = model.selectedNodeId else { return }
-                    withAnimation(.snappy(duration: 0.12)) {
-                        model.moveNode(id: id, by: -1)
-                    }
-                } label: {
-                    Label("Up", systemImage: "chevron.up")
-                }
-                .buttonStyle(.bordered)
-                .disabled(model.selectedNodeId == nil || model.nodes.count <= 1 || model.isRunning)
-
-                Button {
-                    guard let id = model.selectedNodeId else { return }
-                    withAnimation(.snappy(duration: 0.12)) {
-                        model.moveNode(id: id, by: 1)
-                    }
-                } label: {
-                    Label("Down", systemImage: "chevron.down")
-                }
-                .buttonStyle(.bordered)
-                .disabled(model.selectedNodeId == nil || model.nodes.count <= 1 || model.isRunning)
+                Toggle("Combine Samples", isOn: Binding<Bool>(
+                    get: { model.analysisMode == .concat },
+                    set: { model.analysisMode = $0 ? .concat : .perSample }
+                ))
+                .toggleStyle(.switch)
+                .disabled(model.isRunning)
 
                 Button(role: .destructive) {
                     model.nodes = []
@@ -234,8 +219,31 @@ private struct PipelineStepRow: View {
 
                 Spacer(minLength: 10)
 
-                Image(systemName: "chevron.up.chevron.down")
+                HStack(spacing: 10) {
+                    Button {
+                        withAnimation(.snappy(duration: 0.12)) {
+                            model.moveNode(id: node.id, by: -1)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.up")
+                    }
+                    .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
+                    .disabled(model.isRunning || stepIndex == 1)
+                    .help("Move Up")
+
+                    Button {
+                        withAnimation(.snappy(duration: 0.12)) {
+                            model.moveNode(id: node.id, by: 1)
+                        }
+                    } label: {
+                        Image(systemName: "chevron.down")
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.secondary)
+                    .disabled(model.isRunning || stepIndex == model.nodes.count)
+                    .help("Move Down")
+                }
             }
 
             if isExpanded, let binding = model.nodeBinding(id: node.id) {

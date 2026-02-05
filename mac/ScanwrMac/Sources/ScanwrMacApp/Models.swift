@@ -93,6 +93,20 @@ struct PipelineRunSummary: Codable, Hashable {
     var results: [SampleRunResult]
 }
 
+enum AnalysisMode: String, CaseIterable, Identifiable, Codable, Hashable {
+    case concat = "concat"
+    case perSample = "per_sample"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .concat: return "Cohort (concat)"
+        case .perSample: return "Per-sample"
+        }
+    }
+}
+
 struct SampleMetadata: Identifiable, Codable, Hashable {
     var id: UUID = UUID()
     var sample: String

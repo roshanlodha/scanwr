@@ -41,6 +41,9 @@ final class AppModel: ObservableObject {
 
     // App settings
     @Published var verbosity: Int = 3
+    @Published var analysisMode: AnalysisMode = .concat {
+        didSet { UserDefaults.standard.set(analysisMode.rawValue, forKey: "scgui.analysisMode") }
+    }
     @Published var pipelineBuilderShowConsole: Bool = false {
         didSet { UserDefaults.standard.set(pipelineBuilderShowConsole, forKey: "scgui.pipelineBuilder.showConsole") }
     }
@@ -117,6 +120,14 @@ final class AppModel: ObservableObject {
             verbosity = max(0, min(4, v))
         } else {
             verbosity = 3
+        }
+
+        if let raw = UserDefaults.standard.string(forKey: "scgui.analysisMode"),
+           let m = AnalysisMode(rawValue: raw)
+        {
+            analysisMode = m
+        } else {
+            analysisMode = .concat
         }
 
         pipelineBuilderShowConsole = UserDefaults.standard.bool(forKey: "scgui.pipelineBuilder.showConsole")
@@ -448,7 +459,7 @@ final class AppModel: ObservableObject {
         case "rapids_singlecell.pp.highly_variable_genes", "scanpy.pp.highly_variable_genes":
             return [
                 "n_top_genes": .number(2000),
-                "batch_key": .string(""),
+                "batch_key": .string("sample"),
             ]
         case "rapids_singlecell.pp.calculate_qc_metrics", "scanpy.pp.calculate_qc_metrics":
             return [
@@ -464,7 +475,7 @@ final class AppModel: ObservableObject {
             return ["res": .number(1.0)]
         case "scanpy.tl.rank_genes_groups", "rapids_singlecell.tl.rank_genes_groups":
             return [
-                "groupby": .string("leiden"),
+                "groupby": .string("group"),
                 "create_dotplot": .bool(false),
                 "create_heatmap": .bool(true),
             ]
@@ -683,6 +694,7 @@ final class AppModel: ObservableObject {
             var projectName: String
             var samples: [SampleMetadata]
             var steps: [PipelineStep]
+            var analysisMode: String
         }
         struct PipelineStep: Codable {
             var specId: String
@@ -694,7 +706,13 @@ final class AppModel: ObservableObject {
             let steps = ordered.map { PipelineStep(specId: $0.specId, params: $0.params) }
             let summary: PipelineRunSummary = try await rpc.call(
                 method: "run_pipeline",
-                params: RunParams(outputDir: projectDir, projectName: "", samples: samples, steps: steps)
+                params: RunParams(
+                    outputDir: projectDir,
+                    projectName: "",
+                    samples: samples,
+                    steps: steps,
+                    analysisMode: analysisMode.rawValue
+                )
             )
             if Task.isCancelled { throw CancellationError() }
             appendLog("OK: wrote outputs to \(summary.outputDir)")
